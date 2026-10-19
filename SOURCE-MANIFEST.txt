@@ -60,6 +60,7 @@ docs/progress.md
 docs/reading-appearance-v103.md
 docs/reading-appearance-v108.md
 docs/reading-title-skins-v109.md
+docs/user-guide.md
 docs/verification-v03.md
 docs/verification-v04.md
 docs/verification-v05.md
