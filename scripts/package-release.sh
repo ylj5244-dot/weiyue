@@ -82,7 +82,7 @@ for (const file of extras) {
   if (!fs.existsSync(path.join(root, file))) throw new Error(`额外源码不存在：${file}`);
   candidates.push(file);
 }
-const rootFiles = new Set(['README.md', '.gitignore', 'design-qa.md']);
+const rootFiles = new Set(['README.md', 'LICENSE', '.gitignore', 'design-qa.md']);
 function allowed(file) {
   if (rootFiles.has(file) || file === 'Resources/ui/skin-example.weiyue-skin.json') return true;
   const parts = file.split('/');
@@ -93,6 +93,7 @@ function allowed(file) {
 }
 for (const file of extras) if (!allowed(file)) throw new Error(`额外源码不在允许范围：${file}`);
 const files = [...new Set(candidates.filter(allowed))].sort();
+if (!files.includes('LICENSE')) throw new Error('源码包缺少 MIT 许可证。');
 for (const required of ['Sources/DiscussionTitles.swift','Resources/ui/discussion-titles.js','Resources/ui/discussion-titles.css','tests/discussion-titles.test.cjs','tests/DiscussionTitleTests.swift','tests/DiscussionTitlesUIHarness.swift','tests/ReadingAppearanceV109UIHarness.swift','scripts/test-discussion-title-native.sh','scripts/test-discussion-titles-ui.sh','scripts/test-reading-appearance-v109-ui.sh','docs/reading-title-skins-v109.md','docs/verification-v109.md','tests/BackgroundLifecycleUIHarness.swift','scripts/test-background-lifecycle-ui.sh','Sources/ReadingAppearance.swift','Resources/ui/reading-appearance.js','Resources/ui/reading-appearance.css','Resources/ui/reader-controls-v108.css','Resources/ui/skin-example.weiyue-skin.json','tests/ReaderControlsV108UIHarness.swift','scripts/test-reader-controls-v108-ui.sh','docs/reading-appearance-v108.md','docs/verification-v108.md','README.md','scripts/build.sh','scripts/package-release.sh','docs/install-and-build.md','Sources/App.swift','Sources/WebSearchClient.swift','Resources/ui/index.html','Resources/ui/group-unread.js','Resources/ui/speaker-groups.js', 'Resources/ui/reader-personalization.js', 'Resources/ui/reader-personalization.css', 'Resources/ui/inline-translation.js', 'Resources/ui/inline-translation.css', 'Resources/ui/message-actions.js','Resources/ui/web-search.js','Sources/AttachmentPreview.swift','Resources/ui/attachment-actions.js','Resources/ui/attachment-actions.css','Resources/ui/font-controls.css']) {
   if (!files.includes(required)) throw new Error(`源码包缺少必需文件：${required}`);
 }

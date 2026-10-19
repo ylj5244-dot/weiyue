@@ -1,4 +1,5 @@
 .gitignore
+LICENSE
 README.md
 Resources/bridge/weibo.js
 Resources/ui/ai-context.js
@@ -51,6 +52,7 @@ docs/attachment-reading-v107.md
 docs/design.md
 docs/implementation-v109.md
 docs/install-and-build.md
+docs/open-source.md
 docs/performance-v04.md
 docs/plan.md
 docs/product-logic-v104.md
