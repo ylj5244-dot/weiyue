@@ -1,0 +1,16 @@
+{
+  "format": "weiyue-skin",
+  "version": 1,
+  "name": "纸页 · 青绿",
+  "fontFamily": "PingFang SC",
+  "light": {
+    "background": "#edece4", "panel": "#fffdf6", "sidebar": "#e8ece4",
+    "text": "#263a32", "secondary": "#66766b", "accent": "#277860",
+    "line": "#d4ded3", "soft": "#f1f4e9"
+  },
+  "dark": {
+    "background": "#19251f", "panel": "#222f28", "sidebar": "#1d2a23",
+    "text": "#e0e9dd", "secondary": "#a7b8a9", "accent": "#79c9a3",
+    "line": "#405648", "soft": "#2a3b30"
+  }
+}

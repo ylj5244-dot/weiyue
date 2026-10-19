@@ -1,0 +1,26 @@
+/* The stop action occupies the send slot throughout preparation and generation. */
+.ai-stop-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; min-height:30px; padding:5px 11px; border:1px solid #c4544f; border-radius:8px; background:linear-gradient(#fff5f3,#f8d7d2); color:#942e29; font-size:12px; font-weight:600; box-shadow:inset 0 1px 0 #fff,0 1px 2px #9b40321c; }
+.ai-stop-button:hover { background:#f5c9c2; }.stop-square { width:9px; height:9px; border-radius:2px; background:currentColor; }
+.ai-stop-button { margin-left:auto; }
+:root[data-color-scheme="dark"] .ai-stop-button { background:linear-gradient(#613b39,#422727); border-color:#a96c66; color:#ffcec8; box-shadow:inset 0 1px 0 #c7979133,0 1px 2px #0003; }
+/* A recessed metal ring and raised power cap, with a readable label. */
+.standby-button { display:inline-flex; align-items:center; gap:7px; padding:0 5px 0 0; font-size:11px; font-weight:600; color:var(--text); }
+.standby-cap { width:35px; height:35px; border-radius:50%; display:grid; place-items:center; position:relative; border:1px solid #96a7b4; background:linear-gradient(145deg,#f9ffff,#c3d2dd); box-shadow:inset 0 1px 1px #fff,inset 0 -2px 3px #697c8d55,0 2px 3px #344b6540; }
+.standby-cap::before { content:""; position:absolute; inset:3px; border-radius:50%; border:1px solid #829b9e; background:linear-gradient(155deg,#effbf2,#afcbb7); box-shadow:inset 0 1px 0 #fff9; }
+.standby-cap svg { position:relative; width:19px; height:19px; color:#2c7051; stroke-width:2.2; }
+.standby-button:hover .standby-cap { filter:brightness(1.07); }.standby-button:active:not(:disabled) .standby-cap { box-shadow:inset 0 2px 5px #3c5c7460; }
+:root[data-color-scheme="dark"] .standby-cap { background:linear-gradient(145deg,#7d8b98,#323e49); border-color:#738391; box-shadow:inset 0 1px 0 #ffffff70,0 2px 4px #0006; }
+:root[data-color-scheme="dark"] .standby-cap::before { background:linear-gradient(145deg,#547665,#274635); border-color:#83a48f; }:root[data-color-scheme="dark"] .standby-cap svg { color:#b1efc9; }
+/* Bookmarks have a dedicated second-row action, inset from the card edge. */
+ .recent-bookmark-row { position:relative; display:block; padding:0; border-bottom:1px solid var(--line); }
+.recent-bookmark-row:last-child { border-bottom:0; }
+.recent-bookmark-row > .recent-bookmark { width:100%; padding:10px; border:0; }
+.recent-bookmark-row .recent-bookmark time { padding-right:34px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:22px; }
+.recent-bookmark-row > .recent-bookmark-edit { position:absolute; right:8px; bottom:9px; padding:2px 5px; min-height:24px; line-height:20px; border-radius:5px; }
+.recent-bookmark-row > .recent-bookmark-edit:hover { background:var(--blue-light); }
+/* All selected fills stay inside each button's real box. */
+.message-card .message-actions { padding:0 4px; gap:2px 4px; }
+.message-card .message-actions button { display:inline-flex; align-items:center; gap:3px; padding:1px 4px; }
+.message-card .message-actions button[aria-pressed="true"],.message-card .message-actions .manual-progress-action[aria-pressed="true"],.message-card .message-actions .message-bookmark-action[aria-pressed="true"] { box-shadow:none; }
+.message-card .message-actions button svg { width:12px; height:12px; }
+@container(max-width:650px) { .message-card .message-actions { gap:2px; } }

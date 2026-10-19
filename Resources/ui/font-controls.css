@@ -1,0 +1,59 @@
+/* Both reading surfaces use a full-width native select inside the same compact control. */
+.font-size-control {
+  position:relative;
+  display:inline-flex;
+  flex:0 0 64px;
+  width:64px;
+  height:28px;
+  margin:0;
+  padding:0;
+  border:1px solid var(--control-edge,var(--line));
+  border-radius:6px;
+  background:var(--control,var(--panel));
+  color:var(--secondary);
+  font-size:11px;
+  line-height:1;
+}
+.font-size-control>span {
+  position:absolute;
+  left:7px;
+  top:50%;
+  transform:translateY(-50%);
+  pointer-events:none;
+}
+.font-size-control::after {
+  content:"";
+  position:absolute;
+  right:7px;
+  top:9px;
+  width:5px;
+  height:5px;
+  border-right:1.4px solid currentColor;
+  border-bottom:1.4px solid currentColor;
+  transform:rotate(45deg);
+  pointer-events:none;
+}
+.font-size-control>select {
+  -webkit-appearance:none;
+  appearance:none;
+  display:block;
+  width:100%;
+  height:100%;
+  min-width:0;
+  max-width:none;
+  margin:0;
+  padding:0 16px 0 25px;
+  border:0;
+  border-radius:5px;
+  background:transparent;
+  color:var(--text);
+  font:inherit;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+}
+.font-size-control>select:focus { outline:none; }
+.font-size-control:focus-within { outline:2px solid var(--blue); outline-offset:2px; }
+.font-size-control:has(select:not(:disabled)):hover { background:var(--soft); }
+.font-size-control:has(select:disabled) { opacity:.45; }
+.font-size-control>select:disabled { cursor:default; }
+.font-size-control option { background:var(--panel); color:var(--text); }

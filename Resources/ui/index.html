@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: weiyue-media:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>微阅 · 微博群聊工作台</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="reader-personalization.css">
+  <link rel="stylesheet" href="inline-translation.css">
+  <link rel="stylesheet" href="attachment-actions.css">
+  <link rel="stylesheet" href="font-controls.css">
+  <link rel="stylesheet" href="reading-appearance.css">
+  <link rel="stylesheet" href="reader-controls-v108.css">
+  <link rel="stylesheet" href="discussion-titles.css">
+  <script src="appearance.js"></script>
+  <script src="preferences.js" defer></script>
+  <script src="web-search.js" defer></script>
+  <script src="group-unread.js" defer></script>
+  <script src="model.js" defer></script>
+  <script src="ai-context.js" defer></script>
+  <script src="range-summary.js" defer></script>
+  <script src="range-summary-runner.js" defer></script>
+  <script src="layout.js" defer></script>
+  <script src="reader-performance.js" defer></script>
+  <script src="cleanup.js" defer></script>
+  <script src="preferences-ui.js" defer></script>
+  <script src="range-summary-ui.js" defer></script>
+  <script src="speaker-groups.js" defer></script>
+  <script src="reader-personalization.js" defer></script>
+  <script src="inline-translation.js" defer></script>
+  <script src="message-actions.js" defer></script>
+  <script src="attachment-actions.js" defer></script>
+  <script src="reading-appearance.js" defer></script>
+  <script src="discussion-titles.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M6 8h0M6 12h0"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-4-.9L4 20l1.4-4a8 8 0 1 1 14.6-4.5Z"/><path d="M8 10h8M8 14h5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H4ZM20 4h-4a3 3 0 0 0-3 3v14a4 4 0 0 1 4-2h3Z"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4Z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.5 2.3-2 1.2-2.3-.7-2 3.4L4 10.8v2.4l-1.8 1.6 2 3.4 2.3-.7 2 1.2L9 21h4l.5-2.3 2-1.2 2.3.7 2-3.4-1.8-1.6v-2.4l1.8-1.6-2-3.4-2.3.7-2-1.2L13 3Z"/><circle cx="11" cy="12" r="3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 20V4m-6 6 6-6 6 6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 8a8 8 0 1 0 .4 7M20 3v5h-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6Z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M5 12v8h14v-8M12 15V3m-4 4 4-4 4 4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.7 13.1A8.9 8.9 0 0 1 10.9 3.3 9 9 0 1 0 20.7 13.1Z"/></symbol>
+    <symbol id="i-return" viewBox="0 0 24 24"><path d="m9 5-5 5 5 5M4 10h10a6 6 0 0 1 0 12"/></symbol>
+  </svg>
+
+  <div id="app" class="app-shell">
+    <header class="toolbar">
+      <div class="toolbar-start">
+        <button id="toggle-sidebar" class="icon-button" title="收起群聊侧栏" aria-label="收起群聊侧栏"><svg><use href="#i-sidebar"/></svg></button>
+        <div class="wordmark"><span class="app-icon"><svg><use href="#i-book"/></svg></span><span>微阅</span><span class="wordmark-caption">群聊工作台</span></div>
+      </div>
+      <div id="toolbar-center" class="toolbar-center"><span class="status-dot"></span><span id="save-status">正在载入…</span></div>
+      <div class="toolbar-end">
+        <span id="demo-badge" class="demo-badge" hidden>浏览器预览</span>
+        <button id="load-demo" class="quiet-button" hidden>加载演示</button>
+        <label class="appearance-control" title="切换日间、夜间或跟随系统"><svg aria-hidden="true"><use id="appearance-symbol" href="#i-sun"/></svg><span>外观</span><select id="appearance-select" aria-label="界面外观"><option value="system">跟随系统</option><option value="light">日间</option><option value="dark">夜间</option></select></label>
+        <button id="settings-button" class="icon-button" aria-label="设置" title="设置"><svg><use href="#i-settings"/></svg></button>
+        <button id="toggle-inspector" class="icon-button" aria-label="收起 AI 侧栏" title="收起 AI 侧栏"><svg class="flip"><use href="#i-sidebar"/></svg></button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar-main">
+          <div class="sidebar-section-title library-label">工作台</div>
+          <nav class="library-nav" aria-label="资料库">
+            <button id="nav-chats" class="nav-row active"><svg><use href="#i-chat"/></svg><span>群聊</span><span id="group-count" class="count">0</span></button>
+            <button id="nav-bookmarks" class="nav-row"><svg><use href="#i-bookmark"/></svg><span>书签</span><span id="bookmark-count" class="count">0</span></button>
+            <button id="nav-collections" class="nav-row"><svg><use href="#i-folder"/></svg><span>资料库</span><span id="collection-count" class="count">0</span></button>
+          </nav>
+          <div class="sidebar-section-heading"><div class="sidebar-section-title">我的群聊</div><button id="manage-sync-groups" type="button" class="text-button" title="选择自动同步的群聊">管理</button></div>
+          <label class="search-field compact"><svg><use href="#i-search"/></svg><input id="group-search" type="search" placeholder="搜索群聊" autocomplete="off" aria-label="搜索群聊"></label>
+          <div id="group-list" class="group-list"></div>
+          <p class="sidebar-hint">在「管理」中选择需要同步的群聊。</p>
+          <section class="sidebar-bookmarks" aria-labelledby="recent-bookmarks-title">
+            <div class="sidebar-section-heading"><h2 id="recent-bookmarks-title" class="sidebar-section-title">本群书签 <span id="recent-bookmarks-count">· 0</span></h2><button id="show-sidebar-bookmarks" class="icon-button small" title="查看本群书签" aria-label="查看本群书签"><svg><use href="#i-search"/></svg></button></div>
+            <div id="recent-bookmarks-list" class="recent-bookmarks-list"></div>
+            <p id="recent-bookmarks-empty" class="bookmark-preview-empty">读到值得留下的地方，<br>就为它添加书签。</p>
+            <button id="all-sidebar-bookmarks" class="text-button all-bookmarks-button">查看本群书签 <svg><use href="#i-chevron"/></svg></button>
+          </section>
+        </div>
+        <div class="sidebar-bottom">
+          <button id="open-storage-folder" class="storage-folder-button" type="button"><svg><use href="#i-folder"/></svg><span>打开保存文件夹</span></button>
+          <div class="account"><span class="account-avatar" id="account-avatar">微</span><div><strong id="account-name">尚未连接账号</strong><span id="account-subtitle">在官方页面登录微博</span></div><span class="account-dot"></span></div>
+        </div>
+      </aside>
+
+      <div id="sidebar-divider" class="pane-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整群聊侧栏宽度" aria-controls="sidebar main" title="拖动调整群聊侧栏宽度；双击恢复默认；方向键微调"></div>
+
+      <main id="main" class="main-panel">
+        <section id="chat-view" class="chat-view">
+          <header class="content-header">
+            <div class="heading-group"><span id="group-icon" class="group-emblem"><svg><use href="#i-chat"/></svg></span><div><h1 id="group-name">微博群聊</h1><p id="group-description">连接账号，留住值得细读的讨论</p></div></div>
+            <div class="reader-mode-actions"><button id="enter-standby" class="standby-button" type="button" title="取消当前阅读群，所有已开启同步的群继续累计未读"><span class="standby-cap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0"/></svg></span><span id="standby-label">进入待机</span></button><div class="view-switch" role="group" aria-label="阅读方式"><button id="mode-official" class="selected">官方聊天</button><button id="mode-reader">专注阅读</button></div></div>
+          </header>
+          <div id="coverage-bar" class="coverage-bar"><span class="coverage-dot"></span><span id="coverage-text">本地尚未保存消息 · 勾选群聊后自动同步</span><button id="coverage-action" class="text-button">查看最新</button></div>
+          <div id="official-area" class="official-area">
+            <div id="official-host" class="official-host">
+              <div id="official-placeholder" class="official-placeholder"><span class="empty-icon"><svg><use href="#i-chat"/></svg></span><h2>从一场讨论开始</h2><p id="official-placeholder-text">在此登录微博，使用完整的官方聊天。<br>选择要保留的群，再到「专注阅读」整理内容。</p><button id="open-official" class="primary-button">打开官方聊天</button><span class="small-note">官方页面独立运行，消息由你手动发送</span></div>
+            </div>
+            <div class="official-footer"><span>官方聊天保留原有操作</span><button id="reload-official" class="text-button"><svg><use href="#i-refresh"/></svg>重新载入</button></div>
+          </div>
+          <div id="reader-area" class="reader-area" hidden>
+            <div class="reader-tools">
+              <label class="search-field message-search"><svg><use href="#i-search"/></svg><input id="message-search" type="search" placeholder="搜索本地消息" autocomplete="off" aria-label="搜索本地消息"></label>
+              <button id="member-filter-button" class="filter-button">全部成员 <span class="down-chevron">⌄</span></button>
+              <button id="date-filter-button" class="filter-button" title="按时间筛选"><svg><use href="#i-clock"/></svg><span>时间</span></button>
+              <button id="open-range-summary" class="filter-button range-summary-button" title="指定日期和时间，加载并总结这段时间的全部群聊消息"><svg><use href="#i-spark"/></svg><span>时段总结</span></button>
+              <label class="font-size-control" title="调整阅读字号"><span aria-hidden="true">Aa</span><select id="font-button" aria-label="阅读字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option></select></label>
+            </div>
+            <div id="member-popover" class="member-popover" hidden><label class="search-field"><svg><use href="#i-search"/></svg><input id="member-search" type="search" placeholder="搜索成员姓名或 ID" autocomplete="off" aria-label="搜索成员姓名或 ID"></label><div id="member-list"></div></div>
+            <div id="date-filter" class="date-filter" hidden><label>从 <input id="date-from" type="date" aria-label="起始日期"></label><label>至 <input id="date-to" type="date" aria-label="结束日期"></label><button id="clear-dates" class="text-button">清除</button></div>
+            <div id="reader-summary" class="reader-summary"><div class="reader-result-line"><span id="result-count">0 条本地消息</span><button id="clear-filters" class="text-button" hidden>清除筛选</button></div><div class="reader-status-row"><div class="reading-position-controls" aria-label="阅读位置"><button id="manual-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">回到手动续读点</span><span class="reading-position-time">尚未设置</span></button><button id="return-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">返回跳转前</span><span class="reading-position-time">尚未跳转</span></button></div><div id="sync-bar" class="sync-bar"><span class="sync-dot"></span><span id="sync-status">等待同步当前群聊</span><span id="sync-time"></span><div class="sync-actions"><button id="sync-now" class="text-button">立即同步</button><button id="load-history" class="text-button">加载更早 500 条</button></div></div></div></div>
+            <div id="reader-scroll" class="reader-scroll" tabindex="0" aria-label="群聊消息"><div id="messages" class="messages"></div></div>
+            <div id="selection-bar" class="selection-bar" hidden><div><span id="selected-count">已选 0 条</span><button id="clear-selection" class="text-button">清除</button></div><div><button id="translate-selection" class="secondary-button" title="批量翻译所选聊天，在右侧查看"><svg><use href="#i-book"/></svg>批量翻译</button><button id="save-collection" class="secondary-button"><svg><use href="#i-folder"/></svg>加入收藏</button><button id="use-selection" class="primary-button"><svg><use href="#i-spark"/></svg>加入讨论</button></div></div>
+            <div id="reader-footer" class="reader-footer"><span>仅搜索本地已加载记录</span><span>选择消息 · 收藏、翻译或加入讨论</span></div>
+          </div>
+        </section>
+
+        <section id="bookmarks-view" class="library-view" hidden>
+          <header class="content-header"><div><div class="eyebrow">每次停下，都有迹可循</div><h1>书签</h1><p>独立保留每一个位置，不覆盖上一次标记。</p></div><span class="header-icon"><svg><use href="#i-bookmark"/></svg></span></header>
+          <div class="library-toolbar"><div class="view-switch"><button id="bookmarks-active" class="selected">书签</button><button id="bookmarks-deleted">最近删除</button></div><label class="bookmark-scope-label"><span class="sr-only">书签范围</span><select id="bookmark-group-filter" aria-label="书签范围"><option value="">所有群聊</option></select></label><span id="bookmarks-total" class="muted">0 个标记</span></div>
+          <div id="bookmarks-list" class="library-list"></div>
+        </section>
+
+        <section id="collections-view" class="library-view" hidden>
+          <header class="content-header"><div><div class="eyebrow">把有价值的讨论留下来</div><h1>资料库</h1><p>消息快照与出处一起保存，随时继续讨论。</p></div><span class="header-icon"><svg><use href="#i-folder"/></svg></span></header>
+          <div class="library-toolbar collections-toolbar"><div class="view-switch"><button id="collections-active" class="selected">全部收藏</button><button id="collections-deleted">最近删除</button></div><span id="collections-total" class="muted">0 组资料</span></div>
+          <div class="collections-selection-tools"><label class="search-field collection-search"><svg><use href="#i-search"/></svg><input id="collection-search" type="search" placeholder="搜索收藏名称、内容" aria-label="搜索收藏名称、内容"></label><label class="collections-select-all-label"><input id="collections-select-all" type="checkbox"><span id="collections-selection-count">全选当前筛选</span></label><button id="collections-bulk-action" class="text-button" disabled>删除所选</button></div>
+          <div id="collections-undo-bar" class="collections-undo-bar" role="status" hidden><span id="collections-undo-text"></span><button id="collections-undo" class="text-button">撤销删除</button></div>
+          <div id="collections-list" class="library-list"></div>
+          <dialog id="collection-delete-dialog" class="collection-delete-dialog"><form id="collection-delete-form"><div class="dialog-header"><div><h2>删除收藏</h2><p id="collection-delete-summary"></p></div><button type="button" class="icon-button" data-close-dialog="collection-delete-dialog" aria-label="关闭"><svg><use href="#i-close"/></svg></button></div><div id="collection-delete-names" class="quote-preview"></div><p class="small-note">仅删除收藏引用；原始聊天、附件文件、书签和 AI 讨论均保留。可通过「撤销删除」或「最近删除」恢复。</p><p id="collection-delete-error" class="form-error" hidden></p><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="collection-delete-dialog">取消</button><button id="confirm-collection-delete" type="submit" class="primary-button">删除收藏</button></div></form></dialog>
+        </section>
+      </main>
+
+      <div id="inspector-divider" class="pane-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整 AI 侧栏宽度" aria-controls="main inspector" title="拖动调整 AI 侧栏宽度；双击恢复默认；方向键微调"></div>
+
+      <aside id="inspector" class="inspector">
+        <header class="inspector-header"><div><span class="spark-tile"><svg><use href="#i-spark"/></svg></span><h2>一起读懂</h2></div><div class="inspector-heading-actions"><label class="font-size-control" title="调整一起读懂字号，自动保存"><span aria-hidden="true">Aa</span><select id="ai-font-size" aria-label="一起读懂字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="22">22</option></select></label><button id="new-discussion" class="icon-button small" title="新建讨论" aria-label="新建讨论"><svg><use href="#i-plus"/></svg></button></div></header>
+        <div class="context-section">
+          <details id="context-disclosure" class="context-disclosure">
+          <summary class="context-heading" title="展开或收起本次使用的聊天、图片和文档"><div class="context-heading-title"><svg><use href="#i-chevron"/></svg><span>本次讨论资料</span><span class="context-heading-dot">·</span><span id="context-count" class="context-count">已选 0 条</span></div></summary>
+          <div id="context-empty" class="context-empty"><p>选择聊天、图片或文档，加入本次讨论。</p></div>
+          <div id="context-list" class="context-list"></div>
+          <div id="context-meta" class="context-meta" hidden><span id="context-source"></span><div class="context-footer-actions"><button id="save-ai-context" class="text-button"><svg><use href="#i-export"/></svg>保存资料</button><button id="clear-context" class="text-button">清空</button></div></div>
+          </details><button id="import-ai-document" class="text-button context-import" title="选择本地文档，让 AI 阅读和解读"><svg><use href="#i-plus"/></svg>文档</button>
+        </div>
+        <div class="discussion-heading"><span id="discussion-title">新讨论</span><div class="discussion-heading-tools"><button id="discussion-history" class="text-button" aria-controls="discussion-list" aria-expanded="false">历史</button></div></div>
+        <div id="discussion-list" class="discussion-list" hidden aria-label="讨论历史"><div class="discussion-history-header"><strong>讨论历史</strong><button id="close-discussion-history" type="button" class="icon-button small" aria-label="关闭讨论历史"><svg><use href="#i-close"/></svg></button></div><div class="discussion-history-toolbar"><div class="view-switch" role="group" aria-label="讨论历史范围"><button id="discussions-active" type="button" class="selected">全部讨论</button><button id="discussions-deleted" type="button">最近删除</button></div><button id="discussions-clear" type="button" class="text-button">清空历史</button><button id="discussions-restore-all" type="button" class="text-button" hidden>全部恢复</button></div><p id="discussion-history-note" class="discussion-history-note"></p><div id="discussion-title-tools" class="discussion-title-tools"><span id="discussion-title-progress" aria-live="polite"></span><button id="discussion-title-action" type="button" class="text-button"></button></div><p id="discussion-history-error" class="form-error" role="alert" hidden></p><div id="discussion-items"></div></div>
+        <div id="conversation" class="conversation" aria-live="polite">
+          <div id="ai-welcome" class="ai-welcome"><span class="ai-orb"><svg><use href="#i-spark"/></svg></span><h3>让讨论，再往前一步</h3><p>提炼观点、梳理分歧，<br>或者追问一句「为什么」。</p></div>
+          <div id="conversation-messages"></div>
+        </div>
+        <div class="composer-section">
+          <div id="quick-prompts" class="quick-prompts" aria-label="自定义快捷提问"></div>
+          <div id="ai-progress" class="ai-progress" hidden role="status"><span class="activity-dot"></span><span id="ai-progress-label">准备中</span><span id="ai-progress-time">0 秒</span></div>
+          <div id="ai-state" class="ai-state" hidden></div>
+          <div class="ai-options-row" role="group" aria-label="AI 回答选项">
+            <button id="ai-web-search" type="button" class="ai-option-toggle" aria-pressed="false" aria-describedby="web-search-hint"><svg><use href="#i-search"/></svg><span>联网搜索</span><span id="web-search-state" class="ai-option-state">已关闭</span></button>
+            <button id="ai-thinking" type="button" class="ai-option-toggle" aria-pressed="false"><svg><use href="#i-spark"/></svg><span>深度思考</span><span id="thinking-state" class="ai-option-state">确认中</span></button>
+          </div>
+          <p id="web-search-hint" class="visually-hidden">开启后按本次提问检索网页，回答附来源。</p>
+          <form id="ai-form" class="composer"><textarea id="ai-question" rows="2" placeholder="围绕这些资料，继续聊…" aria-label="向 AI 提问"></textarea><div class="composer-bottom"><button id="ai-model-button" type="button" class="model-button"><span class="model-dot"></span><span id="ai-model-label">设置模型</span><span>⌄</span></button><button id="ai-cancel" type="button" class="ai-stop-button" title="停止当前 AI 任务，保留已收到的内容" aria-label="停止当前 AI 任务" hidden><span class="stop-square" aria-hidden="true"></span><span id="ai-stop-label">停止</span></button><button id="ai-send" class="send-button" type="submit" title="发送提问与所选资料 · Enter 发送，Shift+Enter 换行" aria-label="发送提问与所选资料"><svg><use href="#i-arrow"/></svg></button></div></form>
+          <p id="send-disclosure" class="send-disclosure"><svg><use href="#i-shield"/></svg><span title="仅在发送、翻译或解读时，提交所选资料与本次对话">发送时提交本次讨论资料与对话</span></p>
+        </div>
+      </aside>
+    </div>
+    <div id="status-banner" class="status-banner" hidden role="status"><span id="status-banner-text"></span><button id="dismiss-status" class="icon-button small" aria-label="关闭提示"><svg><use href="#i-close"/></svg></button></div>
+    <div id="toast" class="toast" hidden role="status"></div>
+  </div>
+
+  <dialog id="discussion-delete-dialog" class="settings-dialog discussion-delete-dialog" aria-labelledby="discussion-delete-title">
+    <form id="discussion-delete-form"><div class="dialog-header"><div><h2 id="discussion-delete-title">删除讨论</h2><p id="discussion-delete-summary"></p></div><button id="discussion-delete-close" type="button" class="icon-button" aria-label="关闭删除讨论确认"><svg><use href="#i-close"/></svg></button></div><div class="settings-dialog-body"><div id="discussion-delete-names" class="quote-preview"></div><p class="small-note">讨论会移到「最近删除」，可随时恢复。原始聊天、收藏资料、书签、个人偏好，以及讨论中的来源快照都会保留。</p><p id="discussion-delete-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button id="discussion-delete-cancel" type="button" class="secondary-button">取消</button><button id="discussion-delete-confirm" type="submit" class="primary-button">删除讨论</button></div></form>
+  </dialog>
+
+  <dialog id="range-summary-dialog" class="settings-dialog range-summary-dialog" aria-labelledby="range-summary-title">
+    <form id="range-summary-form" novalidate>
+      <div class="dialog-header"><div><h2 id="range-summary-title">总结一段群聊</h2><p id="range-summary-group"></p></div><button id="range-summary-close" type="button" class="icon-button" aria-label="关闭时段总结"><svg><use href="#i-close"/></svg></button></div>
+      <div class="settings-dialog-body range-summary-body">
+        <div class="range-summary-section-heading"><span>选择时间范围</span><div class="range-summary-presets"><button id="range-summary-today" type="button" class="text-button">今天</button><button id="range-summary-yesterday" type="button" class="text-button">昨天</button></div></div>
+        <div class="range-summary-dates"><label class="form-label">开始日期与时间<input id="range-summary-start" type="datetime-local" step="60" required aria-describedby="range-summary-time-note"></label><span class="range-summary-date-divider" aria-hidden="true">至</span><label class="form-label">结束日期与时间<input id="range-summary-end" type="datetime-local" step="60" required aria-describedby="range-summary-time-note"></label></div>
+        <p id="range-summary-time-note" class="small-note">按这台 Mac 的本地时间选择，包含起止分钟内的消息；当前分钟截至开始加载时刻。</p>
+        <section class="range-summary-coverage" aria-label="消息数量与完整性" aria-live="polite"><div class="range-summary-count-row"><strong id="range-summary-count">正在统计…</strong><span id="range-summary-completeness" class="range-summary-completeness">待核对</span></div><p id="range-summary-coverage">尚未向微博核对，不能确认完整。</p></section>
+        <label class="form-label range-summary-question-label">希望重点梳理什么<textarea id="range-summary-question" rows="3" maxlength="12000" placeholder="例如：按话题整理讨论内容、主要观点、分歧和结论，并引用对应原消息。"></textarea></label>
+        <p class="small-note range-summary-preferences-note"><svg><use href="#i-settings"/></svg>自动沿用个人偏好；这里输入的具体要求优先。</p>
+        <p class="range-summary-material-note">总结包含全部消息的文字与附件名称。图片、文档正文不会自动读取，可在原消息中单独加入讨论。</p>
+        <div id="range-summary-progress" class="range-summary-progress" role="status" hidden><span class="activity-dot" aria-hidden="true"></span><div><strong id="range-summary-progress-label"></strong><p id="range-summary-progress-detail"></p></div></div>
+        <p id="range-summary-error" class="form-error" role="alert" hidden></p>
+        <p id="range-summary-partial-note" class="range-summary-partial-note" hidden>这段时间的消息尚未核对完整。你可以继续加载，或明确选择只总结当前已加载的消息；结果会标注范围不完整。</p>
+      </div>
+      <div class="dialog-footer"><p id="range-summary-send-note" class="range-summary-send-note">自动加载消息，过多时分批汇总。发送这段时间的消息给已设置的 AI 服务。</p><div class="range-summary-actions"><button id="range-summary-minimize" type="button" class="secondary-button" hidden>收起，后台继续</button><button id="range-summary-cancel" type="button" class="secondary-button" hidden>停止任务</button><button id="range-summary-retry" type="button" class="secondary-button" hidden>继续加载</button><button id="range-summary-partial" type="button" class="primary-button" hidden>仅总结已加载消息</button><button id="range-summary-submit" type="submit" class="primary-button"><svg><use href="#i-spark"/></svg>开始 AI 总结</button></div></div>
+    </form>
+  </dialog>
+
+  <dialog id="preferences-dialog" class="settings-dialog preferences-dialog" aria-labelledby="preferences-title">
+    <form id="preferences-form" novalidate>
+      <div class="dialog-header"><div><h2 id="preferences-title">个人偏好库</h2><p>当前微博账号的所有群聊共用，关闭重开后仍会保留。</p></div><button type="button" class="icon-button" data-close-preferences="library" aria-label="关闭个人偏好库"><svg><use href="#i-close"/></svg></button></div>
+      <div class="preferences-tabs" role="tablist" aria-label="个人偏好库内容"><button id="preferences-tab-entries" type="button" role="tab" aria-selected="true" aria-controls="preferences-panel">个人偏好</button><button id="preferences-tab-quick" type="button" role="tab" aria-selected="false" aria-controls="preferences-panel" tabindex="-1">快捷提问</button></div>
+      <div class="settings-dialog-body preferences-body" id="preferences-panel" role="tabpanel" aria-labelledby="preferences-tab-entries">
+        <p id="preferences-guide" class="preferences-guide">启用的偏好会随每次提问带给 AI。本次讨论的临时要求优先，已发送的回答不会改变。</p>
+        <div class="preferences-workspace">
+          <section class="preferences-list-pane" aria-label="偏好项目"><div class="preferences-list-heading"><span id="preferences-list-count">0 项偏好</span><button id="preference-add" type="button" class="text-button"><svg><use href="#i-plus"/></svg>添加偏好</button></div><div id="preferences-items" class="preferences-items"></div></section>
+          <section id="preference-editor" class="preference-editor" aria-label="编辑所选项目" hidden>
+            <div class="preference-editor-heading"><strong id="preference-editor-title">编辑偏好</strong><label class="preference-enabled"><input id="preference-enabled" type="checkbox">启用</label></div>
+            <label class="form-label">名称<input id="preference-title" type="text" autocomplete="off" placeholder="例如：写作语气"></label>
+            <label id="preference-category-row" class="form-label">类别<select id="preference-category"><option value="writing">写作风格</option><option value="format">展示格式</option><option value="other">其他要求</option></select></label>
+            <label class="form-label"><span id="preference-content-label">具体要求</span><textarea id="preference-content" rows="7" placeholder="例如：用完整段落表达观点，少用空泛的过渡语。"></textarea></label>
+            <p id="preference-content-hint" class="small-note">尽量写清楚你希望 AI 怎么做；停用可保留内容但暂不使用。</p>
+            <div class="preference-item-actions"><button id="preference-move-up" type="button" class="secondary-button" aria-label="将所选项目上移">上移</button><button id="preference-move-down" type="button" class="secondary-button" aria-label="将所选项目下移">下移</button><button id="preference-delete" type="button" class="text-button preference-delete">删除这项</button></div>
+          </section>
+          <div id="preference-editor-empty" class="preference-editor-empty"><svg><use href="#i-book"/></svg><p>把常用的要求留在这里，<br>每次讨论都从熟悉的方式开始。</p></div>
+        </div>
+        <p id="preferences-error" class="form-error" role="alert" hidden></p>
+      </div>
+      <div class="dialog-footer"><span class="preferences-save-note">修改后点击保存，才会应用到后续提问。</span><button type="button" class="secondary-button" data-close-preferences="library">取消</button><button id="preferences-save" type="submit" class="primary-button">保存偏好库</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="sync-groups-dialog" class="settings-dialog" aria-labelledby="sync-groups-title">
+    <form id="sync-groups-form"><div class="dialog-header"><div><h2 id="sync-groups-title">管理同步群聊</h2><p>选择需要自动同步并保存到本机的群。保存后继续当前阅读。</p></div><button type="button" class="icon-button" data-close-dialog="sync-groups-dialog" aria-label="关闭"><svg><use href="#i-close"/></svg></button></div><div class="settings-dialog-body"><div id="sync-groups-list" class="sync-groups-list"></div><p id="sync-groups-error" class="form-error" hidden></p><p class="small-note">关闭同步会保留已有消息、书签和收藏。未找到群聊时，可刷新官方页面后重新打开管理窗口。</p><button id="refresh-groups" type="button" class="text-button">刷新官方群聊列表</button></div><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="sync-groups-dialog">取消</button><button id="save-sync-groups" type="submit" class="primary-button">保存同步选择</button></div></form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form id="settings-form"><div class="dialog-header"><div><h2>设置</h2><p>阅读偏好、模型服务与本地文件。</p></div><button id="close-settings" type="button" class="icon-button" data-close-dialog="settings-dialog" aria-label="关闭设置" autofocus><svg><use href="#i-close"/></svg></button></div>
+      <div id="settings-body" class="settings-dialog-body"><section class="settings-shortcuts"><h3>阅读与讨论</h3><div><button id="open-preferences" type="button" class="text-button" title="查看、修改长期偏好和快捷提问"><svg><use href="#i-settings"/></svg>个人偏好<span id="preferences-status" class="preference-count">未设置</span></button><button id="open-followed-members" type="button" class="text-button">重点关注人员</button><button id="open-reading-appearance" type="button" class="text-button">阅读与皮肤</button></div></section>
+      <label class="form-label">API 地址<input id="api-base-url" type="url" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" required><span>填写 HTTPS 服务地址，例如 https://api.openai.com/v1</span></label>
+      <label class="form-label">模型名称<input id="api-model" type="text" placeholder="服务商提供的模型 ID" autocomplete="off" spellcheck="false" required><span id="model-id-hint">填写 API 调用使用的模型 ID；可以读取服务商返回的可用模型。</span></label>
+      <label id="model-choice-row" class="form-label" hidden>可用模型<select id="api-model-choice" aria-label="选择服务商的模型 ID"></select></label>
+      <label class="form-label">附件读取方式<select id="api-read-mode"><option value="auto">优先由 AI 直接阅读</option><option value="model">仅由 AI 直接阅读</option><option value="local">本机提取文字 / OCR</option></select><span>视觉模型直接读图；PDF 按模型支持发送原文件或原始页面。Word 等文字文件提取正文。只有发送时才交给所选服务。</span></label>
+      <details class="capability-settings"><summary>其他兼容服务的文件能力</summary><p class="settings-test-note">已知官方模型自动识别。自定义服务请按其文档开启。</p><label><input id="api-allow-images" type="checkbox"> 此服务 / 模型支持图像输入</label><label><input id="api-allow-pdf" type="checkbox"> 此服务 / 模型支持 PDF 文件输入</label></details>
+      <label class="form-label">API Key <span id="key-status" class="key-status">尚未设置</span><input id="api-key" type="password" placeholder="输入 Key" autocomplete="new-password" spellcheck="false"><span>Key 按当前微博账号与 API 地址独立存入 macOS 钥匙串。页面不会读取已保存的 Key，留空仅查找此地址已有的 Key。</span></label>
+      <div class="settings-tools"><button id="list-models" type="button" class="secondary-button">刷新可用模型</button><button id="test-ai" type="button" class="secondary-button">测试连接</button><button id="authorize-ai" type="button" class="secondary-button">授权已保存的 Key</button></div><p class="settings-test-note">测试连接只发送固定文字「只回复 OK」。首次使用已保存的 Key，请点击授权，按 macOS 钥匙串提示确认；无需重新输入密钥。</p><p id="settings-feedback" class="settings-feedback" hidden></p>
+      <p id="settings-error" class="form-error" hidden></p>
+      <section class="storage-section" aria-labelledby="storage-title"><div class="storage-heading"><h3 id="storage-title">本地文件</h3><button id="refresh-storage" type="button" class="text-button">刷新路径</button></div><p class="settings-test-note">完整路径可直接选择或复制，也可以一键在访达中打开。</p>
+        <div class="storage-location"><label for="data-path">聊天记录、书签与收藏</label><textarea id="data-path" rows="2" readonly spellcheck="false" aria-label="本地资料完整路径">正在读取路径…</textarea><div class="storage-actions"><button id="copy-data-path" type="button" class="text-button" disabled>复制路径</button><button id="reveal-data-folder" type="button" class="secondary-button" disabled>在访达中打开</button></div></div>
+        <div class="storage-location"><label for="attachments-path">图片与文档缓存</label><textarea id="attachments-path" rows="2" readonly spellcheck="false" aria-label="附件缓存完整路径">正在读取路径…</textarea><div class="storage-actions"><button id="copy-attachments-path" type="button" class="text-button" disabled>复制路径</button><button id="reveal-attachments-folder" type="button" class="secondary-button" disabled>在访达中打开</button></div></div>
+        <div class="storage-actions"><button id="open-cleanup" type="button" class="secondary-button">分类清理本地缓存…</button></div><p id="storage-error" class="form-error" hidden></p>
+      </section></div><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="settings-dialog">取消</button><button id="save-settings" type="submit" class="primary-button">保存设置</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="reading-appearance-dialog" class="settings-dialog reading-appearance-dialog" aria-labelledby="reading-appearance-title">
+    <div class="dialog-header"><div><h2 id="reading-appearance-title">阅读与皮肤</h2><p>调整后自动保存，适用于这台 Mac 上的微阅。</p></div><button id="close-reading-appearance" type="button" class="icon-button" aria-label="关闭阅读与皮肤"><svg><use href="#i-close"/></svg></button></div>
+    <div class="settings-dialog-body">
+      <section class="reading-setting-section"><h3>正文阅读密度</h3><div class="reading-density-options" role="group" aria-label="正文阅读密度"><button type="button" data-reading-density="1">紧凑</button><button type="button" data-reading-density="2">偏紧</button><button type="button" data-reading-density="3">标准</button><button type="button" data-reading-density="4">舒展</button><button type="button" data-reading-density="5">宽松</button></div><p class="small-note">调整文字行距与成员分组的间距，字号保持当前选择。</p></section>
+      <section class="reading-setting-section"><div class="reading-spacing-heading"><h3>同一成员消息间距</h3><button type="button" class="reading-follow-option" data-consecutive-spacing="follow">跟随阅读密度</button></div><div class="reading-density-options" role="group" aria-label="同一成员消息间距" aria-describedby="reading-spacing-status"><button type="button" data-consecutive-spacing="1">紧凑</button><button type="button" data-consecutive-spacing="2">偏紧</button><button type="button" data-consecutive-spacing="3">标准</button><button type="button" data-consecutive-spacing="4">舒展</button><button type="button" data-consecutive-spacing="5">宽松</button></div><p class="small-note"><span id="reading-spacing-status" aria-live="polite">当前跟随：标准密度</span>。独立选择后，更改阅读密度不会覆盖此项。</p><div class="reading-sample" aria-label="连续消息间距预览"><strong>同一位成员</strong><p>给文字留一点呼吸的空间。<br>每一行，都可以从容读完。</p><p>下一条消息，从这里开始。</p></div></section>
+      <section class="reading-setting-section"><h3><label for="reading-skin">界面皮肤</label></h3><div class="reading-setting-row"><select id="reading-skin" aria-label="界面皮肤"></select><button id="import-reading-skin" type="button" class="secondary-button">导入皮肤</button></div><p class="small-note">内置原生、纸页青绿与 Claude Code 风格，均有日夜配色。切换皮肤保留当前字体。<button id="export-reading-sample" type="button" class="text-button">导出可改写的样例</button></p></section>
+      <section class="reading-setting-section"><h3><label for="reading-font">界面与阅读字体</label></h3><div class="reading-setting-row"><select id="reading-font" aria-label="界面与阅读字体"></select><button id="import-reading-font" type="button" class="secondary-button">导入字体</button></div><p class="small-note">可选本机字体，或导入 TTF／OTF 文件。导入字体仅供微阅使用，缺少的字符由系统字体补齐。</p></section>
+      <p id="reading-appearance-status" role="status" hidden></p>
+    </div><div class="dialog-footer"><button id="reset-reading-appearance" type="button" class="text-button">恢复默认</button><button id="done-reading-appearance" type="button" class="primary-button">完成</button></div>
+  </dialog>
+
+  <dialog id="cleanup-dialog" class="settings-dialog" aria-labelledby="cleanup-title">
+    <form method="dialog">
+    <div class="dialog-header"><div><h2 id="cleanup-title">清理本地缓存</h2><p>先预览，再选择清理。微博上的消息不受影响。</p></div><button id="close-cleanup" type="button" class="icon-button" data-close-dialog="cleanup-dialog" aria-label="关闭清理">×</button></div>
+    <div class="settings-dialog-body">
+      <label class="form-label">范围<select id="cleanup-scope"><option value="group">当前群聊</option><option value="all">当前账号的所有群聊</option></select></label>
+      <div class="cleanup-categories"><label><input id="cleanup-text" type="checkbox"> 文字消息</label><label><input id="cleanup-image" type="checkbox"> 图片缓存</label><label><input id="cleanup-document" type="checkbox"> 文档缓存</label></div>
+      <p class="settings-test-note">书签、收藏、AI 讨论和阅读位置引用的资料自动保留。清理文字不删除图片或文档。清理后的旧内容不会被自动下载回来。</p>
+      <div id="cleanup-summary" class="cleanup-summary">请选择要清理的类别。</div>
+      <p class="settings-test-note">文件会移到系统废纸篓；文字保留恢复快照。需要释放磁盘空间时，可自行清空废纸篓，之后文件可能无法恢复。</p>
+      <p id="cleanup-error" class="form-error" hidden></p>
+      <button id="cleanup-undo" class="text-button" type="button" disabled>撤销上一次清理</button>
+    </div>
+    <div class="dialog-footer"><button id="cleanup-preview" class="secondary-button" type="button">预览清理内容</button><button id="cleanup-apply" class="primary-button" type="button" disabled>确认清理</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="bookmark-dialog" class="bookmark-dialog">
+    <form id="bookmark-form"><div class="dialog-header"><div><h2>编辑书签备注</h2><p id="bookmark-message-time"></p></div><button type="button" class="icon-button" data-close-dialog="bookmark-dialog" aria-label="关闭"><svg><use href="#i-close"/></svg></button></div><blockquote id="bookmark-preview" class="quote-preview"></blockquote><label class="form-label">书签备注<textarea id="bookmark-note" rows="3" placeholder="例如：下次从这里继续读（选填）"></textarea></label><p class="small-note">仅修改这条书签的备注，保留原日期、时间与消息快照。</p><p id="bookmark-error" class="form-error" hidden></p><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="bookmark-dialog">取消</button><button id="save-bookmark" type="submit" class="primary-button">保存备注</button></div></form>
+  </dialog>
+
+  <dialog id="collection-dialog" class="collection-dialog">
+    <form id="collection-form"><div class="dialog-header"><div><h2 id="collection-dialog-title">收藏为一组资料</h2><p id="collection-selection-summary"></p></div><button type="button" class="icon-button" data-close-dialog="collection-dialog" aria-label="关闭"><svg><use href="#i-close"/></svg></button></div><label class="form-label">资料名称<input id="collection-name" type="text" placeholder="为这次讨论起个名字" maxlength="120" required></label><p class="small-note">保存选中消息的完整快照与出处，之后可以继续 AI 讨论。</p><p id="collection-error" class="form-error" hidden></p><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="collection-dialog">取消</button><button id="confirm-collection" type="submit" class="primary-button">保存资料</button></div></form>
+  </dialog>
+</body>
+</html>

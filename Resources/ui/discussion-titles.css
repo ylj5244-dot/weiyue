@@ -1,0 +1,5 @@
+.discussion-title-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0 8px;padding:7px 8px;border-radius:6px;background:var(--soft);color:var(--secondary);font-size:10px;line-height:1.6}
+.discussion-title-tools[hidden]{display:none}
+.discussion-title-tools>span{min-width:0;overflow-wrap:anywhere}
+.discussion-title-tools .text-button{flex-shrink:0;font-size:10px;white-space:nowrap}
+.discussion-history-item .discussion-row strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;overflow-wrap:anywhere;line-height:1.65;font-weight:600}

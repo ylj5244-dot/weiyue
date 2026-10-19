@@ -1,0 +1,17 @@
+/* A message's translation stays with its original, including in virtual rows. */
+.inline-translation{margin:10px 0 3px;padding:10px 12px;border:1px solid var(--inline-translation-edge);border-left:3px solid var(--inline-translation-accent);border-radius:7px;background:var(--inline-translation-bg);color:var(--text);--inline-translation-edge:#cbdcd6;--inline-translation-accent:#7ba593;--inline-translation-bg:#f3f8f5}
+.inline-translation-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 9px;min-width:0;line-height:1.6}
+.inline-translation-label{font-size:12px;font-weight:650;color:var(--text);white-space:nowrap}
+.inline-translation-model{font-size:10px;color:var(--secondary);overflow-wrap:anywhere;min-width:0;max-width:100%}
+.inline-translation-actions{display:flex;align-items:center;gap:9px;margin-left:auto;flex-shrink:0}
+.inline-translation-actions button{font:inherit;font-size:11px;line-height:1.7;padding:2px 1px;color:var(--secondary);cursor:pointer;border-radius:3px}
+.inline-translation-actions button:hover{color:var(--blue)}
+.inline-translation-actions button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.inline-translation-actions button:disabled{opacity:.5;cursor:default}
+.inline-translation-status{display:block;margin-top:3px;font-size:10px;line-height:1.7;color:var(--secondary)}
+.inline-translation-text{margin-top:7px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--reader-size,14px);line-height:1.75;user-select:text}
+.inline-translation-error{margin:6px 0 0;font-size:11px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;color:#93642e}
+.inline-translation [hidden]{display:none!important}
+:where(:root[data-color-scheme="dark"]) .inline-translation{--inline-translation-edge:#40574e;--inline-translation-accent:#729e8a;--inline-translation-bg:#273a32}
+:where(:root[data-color-scheme="dark"]) .inline-translation-error{color:#dbb780}
+@media(prefers-reduced-motion:reduce){.inline-translation *{transition:none}}

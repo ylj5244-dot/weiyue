@@ -1,0 +1,76 @@
+/* A reserved top rail keeps hover tools away from media and file names. */
+.attachment-card.attachment-floating-card {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+  padding:7px;
+  max-width:100%;
+  min-width:0;
+  overflow:visible;
+}
+.attachment-floating-card.image-attachment { width:248px; }
+.attachment-floating-card.file-attachment { width:min(360px,100%); min-height:0; }
+.attachment-card.file-attachment:not(.attachment-floating-card) {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+}
+.attachment-card .attachment-floating-actions {
+  flex:none;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:3px;
+  height:25px;
+  min-height:25px;
+  margin:0 0 4px;
+  padding:0;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .1s;
+}
+.attachment-floating-card:hover > .attachment-floating-actions,
+.attachment-floating-card:focus-within > .attachment-floating-actions {
+  opacity:1;
+  pointer-events:auto;
+}
+.attachment-floating-card[data-tools-dismissed="true"] > .attachment-floating-actions { opacity:0; pointer-events:none; }
+.attachment-floating-actions .text-button {
+  height:25px;
+  min-height:25px;
+  padding:3px 7px;
+  border-radius:5px;
+  font-size:11px;
+  line-height:1;
+  white-space:nowrap;
+  color:var(--secondary);
+}
+.attachment-floating-actions .attachment-read { color:var(--blue); background:var(--blue-light); }
+.attachment-floating-actions .text-button:hover { background:var(--soft); color:var(--blue); }
+.attachment-floating-actions .text-button svg { width:12px; height:12px; }
+.attachment-floating-actions :disabled { opacity:.45; cursor:default; }
+.attachment-more { position:relative; flex:none; display:inline-flex; width:27px; height:25px; align-items:center; justify-content:center; overflow:hidden; border-radius:5px; color:var(--secondary); }
+.attachment-more > span { pointer-events:none; font-size:19px; line-height:1; margin-top:-4px; }
+.attachment-more:hover { background:var(--soft); }
+.attachment-more:focus-within { outline:2px solid var(--blue); outline-offset:1px; }
+.attachment-more-menu { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; padding:0; border:0; }
+.attachment-floating-card .image-frame { width:100%; height:160px; max-width:100%; flex:none; margin:0; }
+.attachment-floating-card .image-frame img { width:100%; height:100%; object-fit:contain; }
+.attachment-card .attachment-open { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:4px; text-align:left; border:0; border-radius:5px; background:transparent; color:var(--text); }
+.attachment-open:hover { background:var(--soft); }
+.attachment-open .file-emblem { flex:0 0 32px; }
+.attachment-open .file-detail { min-width:0; flex:1; }
+.attachment-open .file-detail strong { display:block; white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
+.attachment-open .file-detail > span { display:block; line-height:1.5; }
+.attachment-card .attachment-feedback { min-width:0; width:100%; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.attachment-card .attachment-status,
+.attachment-card .attachment-preview-status { display:block; height:auto; min-height:0; max-width:100%; margin:3px 0 0; font-size:10px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; color:var(--secondary); }
+.attachment-card .attachment-status:empty,
+.attachment-card .attachment-preview-status:empty { display:none; }
+.attachment-card .attachment-status[data-failed="true"] { color:var(--red,#b65858); }
+.attachment-feedback .text-button { font-size:10px; padding:2px 0; }
+@media (hover:none) { .attachment-floating-card > .attachment-floating-actions { opacity:1; pointer-events:auto; } }
+@media (prefers-reduced-motion:reduce) { .attachment-card .attachment-floating-actions { transition:none; } }
