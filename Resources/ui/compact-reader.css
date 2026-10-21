@@ -112,7 +112,7 @@
 @container (max-width:760px) {
   #reader-area > .reader-tools { grid-template-columns:minmax(0,1fr) max-content max-content 64px; gap:8px; }
   #reader-area .reader-audience { grid-row:1; grid-column:1; justify-self:start; }
-  #reader-area .reader-tools .message-search { grid-row:2; grid-column:1; }
+  #reader-area .reader-tools .message-search { grid-row:2; grid-column:1; max-width:280px; }
   #reader-area .message-type-filters { grid-row:2; grid-column:2 / -1; justify-self:end; }
   #reader-filter-button { grid-row:1; grid-column:2; }
   #open-range-summary { grid-row:1; grid-column:3; }
