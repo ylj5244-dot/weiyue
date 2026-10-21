@@ -4,11 +4,17 @@ Mac 上的微博群聊阅读与 AI 讨论工具。把消息读清楚，把资料
 
 ## ⬇️ 下载与安装
 
-[📦 下载 Mac 安装包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.9/weiyue-1.0.9-macOS-universal.dmg) · [🗜️ ZIP 备用包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.9/weiyue-1.0.9-macOS-universal.zip) · [📋 全部下载与说明](https://github.com/ylj5244-dot/weiyue/releases/latest)
+[📦 下载 Mac 安装包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.12/weiyue-1.0.12-macOS-universal.dmg) · [🗜️ ZIP 备用包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.12/weiyue-1.0.12-macOS-universal.zip) · [🧩 源码包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.12/weiyue-1.0.12-source.zip) · [📋 更新说明](https://github.com/ylj5244-dot/weiyue/releases/tag/v1.0.12)
 
-适用 macOS 14 及以上，安装包包含 Apple Silicon 与 Intel 架构。打开 DMG，将「微阅」拖入「应用程序」即可。公开下载版本 1.0.9；当前源码及本机构建为 1.0.12。
+当前版本 1.0.12，构建 18。适用 macOS 14 及以上，安装包包含 Apple Silicon 与 Intel 架构。打开 DMG，将「微阅」拖入「应用程序」即可。
 
 应用尚未完成 Apple 签名与公证，首次打开可能被系统拦截，请参阅[安装说明](docs/install-and-build.md)。Intel 已交叉编译，尚未完成真机验收。
+
+## 🆕 1.0.12 更新
+
+阅读顶部收紧为群信息和常用工具两行，同步详情、成员与日期筛选收进菜单；返回、最新和手动续读入口移到右下角，让正文多显示一些。
+
+这次公开版也包含当前群关注阅读、随内容调整的消息背景、长图与侧栏网页预览，以及分类设置和存储清理。[查看完整更新](docs/releases/v1.0.12.md)。
 
 ## ✨ 能做什么
 

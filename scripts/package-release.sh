@@ -13,7 +13,7 @@ while [ "$#" -gt 0 ]; do
       if [ "$#" -lt 2 ]; then printf '%s\n' '--extra-source 后须提供仓库内相对路径。' >&2; exit 1; fi
       EXTRA_SOURCES+=("$2"); shift 2 ;;
     --help|-h)
-      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.12 (18) 双架构构建。' '产物：build/releases/ 中的 DMG、应用 ZIP、源码 ZIP、安装说明和 SHA256SUMS.txt。'; exit 0 ;;
+      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.12 (18) 双架构构建。' '产物：build/releases/ 中的英文文件名 DMG、应用 ZIP、源码 ZIP、中文安装说明、LICENSE.txt 和 SHA256SUMS.txt。'; exit 0 ;;
     *) printf '未知参数：%s\n' "$1" >&2; exit 1 ;;
   esac
 done
@@ -34,8 +34,8 @@ mkdir -p "$ROOT/build/releases"
 WORK="$(mktemp -d "$ROOT/build/.release.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 RELEASE="$ROOT/build/releases"
-STEM="微阅-$VERSION"
-SOURCE_ROOT="$WORK/$STEM-源码"
+STEM="weiyue-$VERSION"
+SOURCE_ROOT="$WORK/$STEM-source"
 mkdir -p "$SOURCE_ROOT" "$WORK/安装盘" "$WORK/产物"
 
 # Export only tracked source files and these intentional additions. Never copy
@@ -93,7 +93,7 @@ for(const file of [...v111Sources,...emoticonPaths]){
   if(!fs.existsSync(path.join(root,file)))throw new Error(`源码包缺少 1.0.12 文件：${file}`);
   candidates.push(file);
 }
-const v112Sources = ['Resources/ui/compact-reader.js','Resources/ui/compact-reader.css','tests/compact-reader.test.cjs','tests/CompactReaderUIHarness.swift','scripts/test-compact-reader-ui.sh','docs/compact-reader-v112.md','docs/verification-v112.md'];
+const v112Sources = ['Resources/ui/compact-reader.js','Resources/ui/compact-reader.css','tests/compact-reader.test.cjs','tests/CompactReaderUIHarness.swift','scripts/test-compact-reader-ui.sh','docs/compact-reader-v112.md','docs/verification-v112.md','docs/releases/v1.0.12.md'];
 for (const file of v112Sources) {
   if (!fs.existsSync(path.join(root,file))) throw new Error(`源码包缺少 1.0.12 文件：${file}`);
   candidates.push(file);
@@ -142,7 +142,7 @@ fs.utimesSync(path.join(destination, 'SOURCE-MANIFEST.txt'), timestamp, timestam
 console.log(`已导出 ${files.length} 份源码/文档；不含 Git、构建产物或用户数据。`);
 NODE
 
-cat > "$WORK/产物/$STEM-安装说明.txt" <<'NOTE'
+cat > "$WORK/产物/$STEM-installation.txt" <<'NOTE'
 微阅 1.0.12（构建 18）安装说明
 
 适用：macOS 14 或更新版本，Apple Silicon 与 Intel Mac。
@@ -154,7 +154,7 @@ cat > "$WORK/产物/$STEM-安装说明.txt" <<'NOTE'
 - 返回跳转前、最新和手动续读点移至阅读区右下角，并避让多选操作栏。
 - 保留消息正文样式、关注分组、表情、网页与附件预览、存储清理和原有阅读位置。
 
-1. 打开「微阅-1.0.12-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
+1. 打开「weiyue-1.0.12-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
 2. 如果正在使用旧版，先通过菜单「退出微阅」或 Command+Q 退出，再替换应用；不要删除本地资料目录。
    旧版若在个人 ~/Applications/ 目录，请拖到原位置替换，避免保留两份而误开旧版。
 3. 从「应用程序」打开微阅。更新同一台 Mac 的应用通常保留原资料和钥匙串中的 Key。
@@ -179,14 +179,15 @@ SHA256SUMS.txt 用于校验文件是否完整；它本身不证明来源可信�
 NOTE
 ditto --norsrc --noextattr "$APP" "$WORK/安装盘/微阅.app"
 ln -s /Applications "$WORK/安装盘/Applications"
-cp "$WORK/产物/$STEM-安装说明.txt" "$WORK/安装盘/安装说明.txt"
+cp "$WORK/产物/$STEM-installation.txt" "$WORK/安装盘/安装说明.txt"
+cp "$ROOT/LICENSE" "$WORK/产物/LICENSE.txt"
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$WORK/产物/$STEM-macOS-universal.zip"
-ditto -c -k --norsrc --noextattr --keepParent "$SOURCE_ROOT" "$WORK/产物/$STEM-源码.zip"
+ditto -c -k --norsrc --noextattr --keepParent "$SOURCE_ROOT" "$WORK/产物/$STEM-source.zip"
 hdiutil create -quiet -volname "微阅 $VERSION" -srcfolder "$WORK/安装盘" -format UDZO -ov "$WORK/产物/$STEM-macOS-universal.dmg"
 hdiutil verify "$WORK/产物/$STEM-macOS-universal.dmg" >/dev/null
 (
   cd "$WORK/产物"
-  shasum -a 256 "$STEM-macOS-universal.dmg" "$STEM-macOS-universal.zip" "$STEM-源码.zip" "$STEM-安装说明.txt" > SHA256SUMS.txt
+  shasum -a 256 "$STEM-macOS-universal.dmg" "$STEM-macOS-universal.zip" "$STEM-source.zip" "$STEM-installation.txt" LICENSE.txt > SHA256SUMS.txt
 )
 for file in "$WORK/产物/"*; do mv -f "$file" "$RELEASE/"; done
 printf '发行文件已生成：%s\n' "$RELEASE"

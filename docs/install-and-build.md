@@ -8,10 +8,11 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `微阅-1.0.12-macOS-universal.dmg` | 推荐安装包，包含应用和「Applications」快捷入口 |
-| `微阅-1.0.12-macOS-universal.zip` | 同一应用的备用压缩包 |
-| `微阅-1.0.12-源码.zip` | 可独立构建的源码、资源、测试、打包脚本和文档 |
-| `微阅-1.0.12-安装说明.txt` | 无需开发工具即可阅读的中文说明 |
+| `weiyue-1.0.12-macOS-universal.dmg` | 推荐安装包，包含应用和「Applications」快捷入口 |
+| `weiyue-1.0.12-macOS-universal.zip` | 同一应用的备用压缩包 |
+| `weiyue-1.0.12-source.zip` | 可独立构建的源码、资源、测试、打包脚本和文档 |
+| `weiyue-1.0.12-installation.txt` | 无需开发工具即可阅读的中文说明 |
+| `LICENSE.txt` | MIT 许可证 |
 | `SHA256SUMS.txt` | 每份发行文件的 SHA-256 校验值 |
 
 1. 若正在使用旧版，先通过「退出微阅」或 Command+Q 退出，等待保存完成。
@@ -52,7 +53,7 @@ shasum -a 256 -c SHA256SUMS.txt
 xcode-select --install
 ```
 
-安装 Node.js 后，解压源码 ZIP，在终端进入解压出的 `微阅-1.0.12-源码` 文件夹，检查工具：
+安装 Node.js 后，解压源码 ZIP，在终端进入解压出的 `weiyue-1.0.12-source` 文件夹，检查工具：
 
 ```sh
 xcrun swiftc --version
@@ -113,7 +114,7 @@ bash scripts/test-compact-reader-ui.sh
 bash scripts/package-release.sh
 ```
 
-脚本会重新构建通用应用，核对版本 **1.0.12 (18)**、两个架构和签名，随后生成 DMG、应用 ZIP、源码 ZIP、中文安装说明以及校验清单。产物在 `build/releases/`。已经生成通用构建时，可跳过重复编译：
+脚本会重新构建通用应用，核对版本 **1.0.12 (18)**、两个架构和签名，随后生成 DMG、应用 ZIP、源码 ZIP、中文安装说明、MIT 许可证以及校验清单。附件采用英文文件名，避免 GitHub 改写中文文件名导致链接与校验清单失配。产物在 `build/releases/`。已经生成通用构建时，可跳过重复编译：
 
 ```sh
 bash scripts/package-release.sh --skip-build
@@ -130,8 +131,8 @@ bash scripts/package-release.sh --skip-build
 ```sh
 xcrun lipo -archs build/微阅.app/Contents/MacOS/WeiboReader
 codesign --verify --deep --strict build/微阅.app
-hdiutil verify build/releases/微阅-1.0.12-macOS-universal.dmg
-unzip -l build/releases/微阅-1.0.12-源码.zip
+hdiutil verify build/releases/weiyue-1.0.12-macOS-universal.dmg
+unzip -l build/releases/weiyue-1.0.12-source.zip
 ```
 
 应用源码架构为 AppKit + WKWebView。源码包不包含 API Key；运行时每位使用者配置自己的账号与服务。修改代码后应重新运行对应测试，不能仅凭成功编译判断群聊、联网搜索或真实 AI 服务已验收。

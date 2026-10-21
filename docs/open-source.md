@@ -1,6 +1,6 @@
 # 开源许可与参考来源
 
-微阅使用根目录的 [MIT License](../LICENSE)，版权署名为 Copyright (c) 2026 ylj5244-dot。该授权适用于本仓库的项目代码与随附文档，也适用于 v1.0.9（构建 15）及其在 GitHub Release 提供的应用与源码。使用、修改或再分发时请保留版权和许可声明。
+微阅使用根目录的 [MIT License](../LICENSE)，版权署名为 Copyright (c) 2026 ylj5244-dot。该授权适用于本仓库的项目代码与随附文档，以及 GitHub Release 提供的微阅应用与源码；当前发行版为 v1.0.12（构建 18）。使用、修改或再分发时请保留版权和许可声明。内置微博表情等第三方素材的来源及授权边界另见 [资源来源说明](weibo-emoticons.md)。
 
 本项目使用 macOS 系统框架，不随源码分发 Apple SDK、系统框架或微博网页代码；项目没有 npm 或 Swift Package 外部包依赖。应用图标由 `scripts/make-icon.swift` 绘制，界面图标定义在 `Resources/ui/index.html`。
 
