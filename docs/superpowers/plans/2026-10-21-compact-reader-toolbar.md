@@ -34,6 +34,6 @@ Files: new `tests/CompactReaderUIHarness.swift`, `scripts/test-compact-reader-ui
 Files: `scripts/build.sh`, `scripts/package-release.sh`, `docs/install-and-build.md`, `docs/compact-reader-v112.md`, `docs/verification-v112.md`.
 
 - [x] Bump version to 1.0.12 and build to 18; list the new files in source export; update local release notes.
-- [ ] Build arm64 and x86_64 with `bash scripts/build.sh`; verify signature and architectures; package with `bash scripts/package-release.sh --skip-build`.
-- [ ] Verify source manifest, packaged resource identity, privacy allowlist, both app archives and hashes. Back up and normally quit the installed application, replace it, start the new app and verify the launched path, version, code signature and resource hashes.
-- [ ] Commit completed source, documentation and verification evidence. Report the installed version, concrete layout changes and any remaining limitation.
+- [x] Build arm64 and x86_64 with `bash scripts/build.sh`; verify signature and architectures; package with `bash scripts/package-release.sh --skip-build`.
+- [x] Verify source manifest, packaged resource identity, privacy allowlist, both app archives and hashes. Back up and normally quit the installed application, replace it, start the new app and verify the launched path, version, code signature and resource hashes.
+- [x] Commit completed source, documentation and verification evidence. Report the installed version, concrete layout changes and any remaining limitation.
