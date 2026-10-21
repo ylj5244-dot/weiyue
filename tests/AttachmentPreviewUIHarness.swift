@@ -25,6 +25,9 @@ import CoreImage
             Task { @MainActor in
                 do {
                     try await self.imageTests(file: image)
+                    let longFile=self.temporary.appendingPathComponent("synthetic-very-long-image.png")
+                    try self.makeImage(height:6000).write(to:longFile)
+                    try await self.longImageTests(file:longFile)
                     self.makeVideo(at: self.temporary.appendingPathComponent("synthetic-video.mov")) { result in
                         Task { @MainActor in
                             do { try await self.videoTests(file: result.get()) } catch { self.finish(false, error.localizedDescription) }
@@ -39,14 +42,14 @@ import CoreImage
         checks += 1
         if !value { throw ReaderError.message(message) }
     }
-    func makeImage() -> Data {
-        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 900, pixelsHigh: 1500, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    func makeImage(height: Int = 1500) -> Data {
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 900, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
         NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        NSColor.white.setFill(); NSRect(x: 0, y: 0, width: 900, height: 1500).fill()
-        for index in 0..<15 {
+        NSColor.white.setFill(); NSRect(x: 0, y: 0, width: 900, height: CGFloat(height)).fill()
+        for index in 0..<(height / 100) {
             NSColor(calibratedRed: 0.1, green: CGFloat(index) / 24, blue: 0.65, alpha: 1).setFill()
             NSRect(x: 32, y: CGFloat(index * 100 + 10), width: 836, height: 4).fill()
-            ("原始附件 · 清晰文字 \(index + 1) / 15" as NSString).draw(at: NSPoint(x: 40, y: CGFloat(index * 100 + 35)), withAttributes: [.font: NSFont.systemFont(ofSize: 28), .foregroundColor: NSColor.black])
+            ("原始附件 · 清晰文字 \(height / 100 - index) / \(height / 100)" as NSString).draw(at: NSPoint(x: 40, y: CGFloat(index * 100 + 35)), withAttributes: [.font: NSFont.systemFont(ofSize: 28), .foregroundColor: NSColor.black])
         }
         NSGraphicsContext.restoreGraphicsState()
         return bitmap.representation(using: .png, properties: [:])!
@@ -142,6 +145,36 @@ import CoreImage
             try check(released == nil, "Closed preview controller has no retain cycle")
         }
         print("PASS: image preview zoom, fit, resize, background/Escape and repeated release"); fflush(stdout)
+    }
+    func longImageTests(file: URL) async throws {
+        let controller=try await prepare(file,kind:.image),canvas=controller.imageView!
+        func near(_ a:CGFloat,_ b:CGFloat)->Bool{abs(a-b)<0.5}
+        try check(canvas.fitsWindow && canvas.fitsWidth,"Long screenshot automatically uses readable width")
+        try check(near(canvas.imageRect.width,canvas.bounds.width) && near(canvas.imageRect.maxY,canvas.bounds.maxY),"Long screenshot starts at its top without horizontal cropping")
+        try check(canvas.zoomScale > AttachmentPreviewLayout.fitScale(canvas.imageSize,in:canvas.bounds)*5,"Long screenshot is substantially more readable than whole-image fit")
+        try snapshot(controller,name:"v111-preview-long-image-width")
+        let wheel=CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:1,wheel1:-320,wheel2:0,wheel3:0)!
+        canvas.scrollWheel(with:NSEvent(cgEvent:wheel)!)
+        let sourceTop=(canvas.imageRect.maxY-canvas.bounds.maxY)/canvas.zoomScale
+        try check(sourceTop>0,"Scrolling down reveals the next part of a long screenshot")
+        controller.window!.setContentSize(NSSize(width:620,height:480));controller.window!.contentView!.layoutSubtreeIfNeeded()
+        try check(near(canvas.imageRect.width,canvas.bounds.width),"Long screenshot width tracks resized preview window")
+        try check(near((canvas.imageRect.maxY-canvas.bounds.maxY)/canvas.zoomScale,sourceTop),"Resizing preserves the image reading location")
+        try snapshot(controller,name:"v111-preview-long-image-resized")
+        button(controller,"preview-whole").performClick(nil)
+        try check(canvas.fitsWindow && !canvas.fitsWidth && canvas.imageRect.height<=canvas.bounds.height+0.5,"Whole-image control still shows the complete long screenshot")
+        button(controller,"preview-fit").performClick(nil)
+        try check(canvas.fitsWidth && near(canvas.imageRect.maxY,canvas.bounds.maxY),"Readable-width control returns to the start of the long image")
+        button(controller,"preview-actual").performClick(nil)
+        try check(canvas.zoomScale==1 && !canvas.fitsWindow,"Manual zoom remains available for long images")
+        controller.window!.setContentSize(NSSize(width:520,height:360));controller.window!.contentView!.layoutSubtreeIfNeeded()
+        let controls=views(controller.window!.contentView!).compactMap{$0 as? NSButton}.filter{!$0.isHidden}
+        for i in controls.indices {for j in controls.indices where j>i {
+            let a=controls[i].convert(controls[i].bounds,to:nil),b=controls[j].convert(controls[j].bounds,to:nil)
+            try check(!a.intersects(b),"Long-preview toolbar controls do not overlap at minimum size")
+        }}
+        escape(controller);try check(controller.isClosed,"Long screenshot closes with Escape");active=nil
+        print("PASS: long-image readable width, scrolling, resize anchor, whole image, manual zoom and toolbar");fflush(stdout)
     }
     func makeVideo(at file: URL, completion: @escaping (Result<URL, Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {

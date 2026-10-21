@@ -10,7 +10,7 @@ test('five density levels change both text leading and message spacing; standard
 test('consecutive spacing follows legacy density until explicitly chosen and reserves the action lane',()=>{
  assert.equal(typeof R.consecutiveGap,'function','consecutive spacing control is available');
  assert.deepEqual([1,2,3,4,5].map(level=>R.consecutiveGap('follow',level)),[0,1,2,5,9]);
- assert.deepEqual([1,2,3,4,5].map(level=>R.consecutiveGap(level,3)),[0,8,20,38,64]);
+ assert.deepEqual([1,2,3,4,5].map(level=>R.consecutiveGap(level,3)),[0,16,40,80,144]);
  assert.equal(R.consecutiveGap(5,1),R.consecutiveGap(5,5),'independent spacing survives density changes');
  for(const value of [undefined,null,'5',true,0,6])assert.equal(R.consecutiveGap(value,3),2);
 });

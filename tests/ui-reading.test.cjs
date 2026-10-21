@@ -161,7 +161,7 @@ test('quit stores pending AI question as retryable without changing completed or
 
 test('cancel while the question is saving invalidates sendAI before any API call', async () => {
   const source=fs.readFileSync(require.resolve('../Resources/ui/app.js'),'utf8');
-  const sendFunction=source.slice(source.indexOf('  async function sendAI(event)'),source.indexOf('  function openSettings()',source.indexOf('  async function sendAI(event)')));
+  const sendFunction=source.slice(source.indexOf('  async function sendAI(event)'),source.indexOf('  function openSettings(',source.indexOf('  async function sendAI(event)')));
   const cancelListener=source.slice(source.indexOf("  async function stopCurrentAI()"),source.indexOf("  $('clear-context').addEventListener",source.indexOf("  async function stopCurrentAI()")));
   const state=fixture(); state.settings.baseURL='https://api.example.test/v1';state.settings.model='test-model';
   const rpcCalls=[],listeners={},question={value:'Translate this selected text',disabled:false,focus(){}};

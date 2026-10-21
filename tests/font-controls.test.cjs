@@ -22,7 +22,7 @@ function fixture() {
     document: { documentElement: { style: { setProperty: (name, value) => properties.set(name, value) } } },
     mutate: fn => { calls.mutations++; fn(); }, persistQuietly: () => { calls.saves++; },
     visibleMessage: () => ({ groupId: 'group-2', messageId: 'message-7', offset: 19 }), settleReading: () => { calls.settles++; },
-    scrollToMessage: (...value) => calls.anchors.push(value), notify: () => {} };
+    renderReader: () => {}, scrollToMessage: (...value) => calls.anchors.push(value), notify: () => {} };
   vm.createContext(box); vm.runInContext(bindings, box); box.applyAIFontSize();
   const change = (id, size) => { const node = get(id); node.value = String(size); node.listeners.change(); };
   return { box, get, properties, calls, change };

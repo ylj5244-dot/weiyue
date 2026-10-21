@@ -1,15 +1,46 @@
-.message-type-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:0 0 auto;padding:0 20px 9px;border-bottom:1px solid var(--line)}.message-type-filters{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.message-type-filters button{padding:5px 12px;font-size:12px;border:1px solid transparent;border-radius:6px;color:var(--secondary)}.message-type-filters button:hover{background:var(--soft)}.message-type-filters button[aria-pressed="true"]{color:var(--blue);background:var(--blue-light);border-color:color-mix(in srgb,var(--blue) 22%,transparent);font-weight:600}.followed-nav-star{font-size:20px;line-height:1;width:18px;color:var(--reader-follow-text)}.followed-scope-label{min-width:0;max-width:180px}.followed-scope-label select{width:100%;padding:5px 6px;font-size:11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text)}.followed-feed .reader-mode-actions,.followed-feed #coverage-bar,.followed-feed #open-range-summary,.followed-feed .reader-status-row{display:none!important}.followed-message-source{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--secondary);margin-top:8px;padding-top:6px;border-top:1px solid var(--line)}.followed-message-source>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followed-message-source .text-button{font-size:10px;flex-shrink:0}.followed-message-source svg{width:12px;height:12px}
-/* Keep the accent visible across skins and consecutive messages. */
-#reader-area .message-card.reader-followed{box-shadow:inset 5px 0 0 var(--reader-follow-accent);border-left-color:var(--reader-follow-accent)}
+/* Current-group reading controls stay compact as the centre pane changes width. */
+#reader-area .reader-tools{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:14px 20px 12px;flex-shrink:0}
+.reader-search-row,.reader-filter-row,.reader-filter-options{display:flex;align-items:center;min-width:0;gap:8px}
+#reader-area .reader-search-row .message-search{flex:1 1 190px;min-width:90px;max-width:280px;width:auto}
+.message-type-filters{display:flex;align-items:center;flex:0 0 auto;gap:3px;white-space:nowrap}
+.message-type-filters button{padding:6px 10px;font-size:12px;border:1px solid transparent;border-radius:6px;color:var(--secondary)}
+.message-type-filters button:hover{background:var(--soft)}
+.message-type-filters button[aria-pressed="true"]{color:var(--blue);background:var(--blue-light);border-color:color-mix(in srgb,var(--blue) 22%,transparent);font-weight:650}
+.reader-filter-row{flex-wrap:wrap;row-gap:8px}
+.reader-audience{display:flex;flex-shrink:0;border:1px solid var(--line);border-radius:7px;padding:2px;background:var(--soft)}
+.reader-audience button{padding:5px 9px;font-size:11px;border-radius:5px;color:var(--secondary);white-space:nowrap}
+.reader-audience button[aria-pressed="true"]{background:var(--panel);color:var(--text);font-weight:650;box-shadow:0 1px 3px #00000012}
+.reader-audience button[data-reader-audience="followed"][aria-pressed="true"]{background:var(--reader-follow-badge);color:var(--reader-follow-text)}
+.reader-manage-followed{font-size:11px;color:var(--secondary);padding:5px 1px}
+.reader-filter-options{margin-left:auto;gap:6px}
+#reader-area .reader-followed-badge{font-size:10px;font-weight:700;line-height:1.4;padding:2px 7px;border-radius:5px;background:var(--reader-follow-badge);color:var(--reader-follow-text);border:1px solid color-mix(in srgb,var(--reader-follow-accent) 45%,transparent)}
+#reader-area .message-card.reader-followed{box-shadow:inset 6px 0 0 var(--reader-follow-accent);border-left-color:var(--reader-follow-accent)}
+#reader-area .message-card.reader-followed:not(.selected):not(.target-message){background:color-mix(in srgb,var(--reader-follow-badge) 38%,var(--panel))}
 #reader-area .message-card.reader-followed .message-name{color:var(--reader-follow-text);font-weight:750}
-#reader-area .reader-followed-badge{font-size:11px;font-weight:700;line-height:1.4;padding:3px 8px;border-radius:6px;background:var(--reader-follow-badge);color:var(--reader-follow-text);border:1px solid color-mix(in srgb,var(--reader-follow-accent) 50%,transparent)}
-#reader-area .message-card.reader-followed .message-heading{height:auto;min-height:23px;overflow:visible;flex-wrap:wrap}
-#reader-area .message-card.reader-followed .message-content>.message-heading{grid-column:1 / -1;grid-row:1}
-#reader-area .message-card.reader-followed .message-content>.message-actions{grid-column:1 / -1;grid-row:2;margin-top:3px}
+#reader-area .message-card.reader-followed:not(.continuation) .message-heading{height:auto;min-height:23px;overflow:visible;flex-wrap:wrap}
+#reader-area .message-card.reader-followed:not(.continuation) .message-content>.message-heading{grid-column:1 / -1;grid-row:1}
+#reader-area .message-card.reader-followed:not(.continuation) .message-content>.message-actions{grid-column:1 / -1;grid-row:2;margin-top:3px}
 #reader-area .message-card.is-own-message{width:calc(100% - 48px);margin-left:auto;margin-right:-7px;border-top-left-radius:10px;border-bottom-left-radius:10px}
-#reader-area .message-card.is-own-message .message-heading{justify-content:flex-end;height:auto;min-height:23px;overflow:visible;flex-wrap:wrap}
-#reader-area .message-card.is-own-message .message-content>.message-heading{grid-column:1 / -1;grid-row:1}
-#reader-area .message-card.is-own-message .message-content>.message-actions{grid-column:1 / -1;grid-row:2;margin-top:3px}
+#reader-area .message-card.is-own-message:not(.continuation) .message-heading{justify-content:flex-end;height:auto;min-height:23px;overflow:visible;flex-wrap:wrap}
+#reader-area .message-card.is-own-message:not(.continuation) .message-content>.message-heading{grid-column:1 / -1;grid-row:1}
+#reader-area .message-card.is-own-message:not(.continuation) .message-content>.message-actions{grid-column:1 / -1;grid-row:2;margin-top:3px}
+#reader-area .message-card.continuation .message-content>.message-heading{display:none}
+#reader-area .message-card.continuation .message-content>.message-actions{grid-row:1;margin-top:0}
 #reader-area .own-message-label{font-size:10px;font-weight:600;color:var(--blue);padding:1px 5px;border-radius:4px;background:var(--blue-light);white-space:nowrap}
 .message-body-row.attachment-title-only{position:relative;left:auto;top:auto;height:0;padding:0;min-height:0}.message-body-row.attachment-title-only .message-select{top:22px}
-@container(max-width:650px){#reader-area .message-card.is-own-message{width:calc(100% - 32px)}.message-type-bar{padding-left:15px;padding-right:15px}.message-type-filters button{padding:5px 9px}}
+.reader-emoticon{display:inline-block;width:1.35em;height:1.35em;vertical-align:-.28em;object-fit:contain;margin:0 .03em}
+@container(max-width:650px){#reader-area .message-card.is-own-message{width:calc(100% - 32px)}#reader-area .reader-tools{padding-left:15px;padding-right:15px}.message-type-filters button{padding:6px 8px}.reader-filter-options .filter-button{padding-left:7px;padding-right:7px}}
+@container(max-width:430px){#reader-area .reader-tools{padding-left:12px;padding-right:12px}.reader-search-row{gap:5px}.message-type-filters{gap:1px}.message-type-filters button{padding:6px}.reader-filter-options{margin-left:0}.reader-audience button{padding:5px 7px}}
+
+/* Content determines the width; the reading pane only supplies the upper bound. */
+#reader-area .message-card.speaker-group{width:min(var(--message-fit-width,100%),calc(100% + 14px));max-width:calc(100% + 14px)}
+#reader-area .message-card.speaker-group.is-own-message{width:min(var(--message-fit-width,100%),calc(100% - 48px));max-width:calc(100% - 48px)}
+@container(max-width:650px){#reader-area .message-card.speaker-group.is-own-message{width:min(var(--message-fit-width,100%),calc(100% - 32px));max-width:calc(100% - 32px)}}
+
+/* A full-width rail can wrap before its intrinsic button width pushes files out. */
+@container(max-width:480px){
+  #reader-area .message-card .message-content{grid-template-columns:minmax(0,1fr)}
+  #reader-area .message-card .message-content>.message-heading{grid-column:1 / -1;grid-row:1}
+  #reader-area .message-card .message-content>.message-actions{grid-column:1 / -1;grid-row:2;max-width:100%}
+  #reader-area .message-card.continuation .message-content>.message-actions{grid-row:1}
+}

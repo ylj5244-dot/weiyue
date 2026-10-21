@@ -13,7 +13,7 @@
   function consecutiveGap(value,readingDensity){
     // The 22px action lane and 2px body inset remain reserved at every level.
     // Follow preserves existing 1.0.8 density measurements and migrations.
-    return isLevel(value)?[0,0,8,20,38,64][value]:density(readingDensity).messageGap;
+    return isLevel(value)?[0,0,16,40,80,144][value]:density(readingDensity).messageGap;
   }
   function normalizePreferences(raw){
     const p=raw&&typeof raw==='object'?raw:{};
@@ -124,7 +124,7 @@
     dialog.addEventListener('close',()=>{if(options.onDialogChange)options.onDialogChange();});
     new MutationObserver(applyColors).observe(root,{attributes:true,attributeFilter:['data-color-scheme']});
     render();
-    return {restore,open(){dialog.showModal();render();if(options.onDialogChange)options.onDialogChange();},isBusy:()=>busy};
+    return {restore,open(){if(options.openDialog)options.openDialog(dialog);else dialog.showModal();render();if(options.onDialogChange)options.onDialogChange();},isBusy:()=>busy};
   }
   return {density,consecutiveGap,normalizePreferences,skinCatalog,accentInk,validateSkin,fontCSS,defaultFont,mount};
 });

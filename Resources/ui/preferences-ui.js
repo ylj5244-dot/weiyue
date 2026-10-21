@@ -55,7 +55,7 @@
         });
         if (!quick.length) {
           const button = document.createElement('button'); button.type = 'button'; button.className = 'quick-prompt-empty'; button.textContent = '＋ 自定义快捷提问'; button.disabled = libraryLocked;
-          button.addEventListener('click', () => { if (!button.disabled && !isLibraryLocked()) openLibrary('quickPrompts'); }); fragment.appendChild(button);
+          button.addEventListener('click', () => { if (!button.disabled && !isLibraryLocked()) (adapter.onOpenRequest ? adapter.onOpenRequest('quickPrompts') : openLibrary('quickPrompts')); }); fragment.appendChild(button);
         }
         $('quick-prompts').replaceChildren(fragment);
       }
@@ -99,9 +99,10 @@
       renderList(); renderLocks();
     }
     function openLibrary(nextTab) {
-      if (isLibraryLocked() || librarySaving || libraryDialog.open) return;
+      if (isLibraryLocked() || librarySaving) return;
+      if(libraryDialog.open){if(nextTab){tab=nextTab;selectedId=currentItems()[0]?.id||null;renderDraft();}return;}
       ++librarySession; draft = clone(adapter.getLibrary()); tab = nextTab || 'entries'; selectedId = currentItems()[0]?.id || null;
-      showError('preferences-error', null); renderDraft(); libraryDialog.showModal(); renderLocks(); layoutChanged();
+      showError('preferences-error', null); renderDraft(); if(adapter.openDialog)adapter.openDialog(libraryDialog);else libraryDialog.showModal(); renderLocks(); layoutChanged();
       $('preferences-panel').scrollTop = 0;
       (currentItem() ? $('preference-title') : $('preference-add')).focus({ preventScroll: true });
     }
@@ -110,7 +111,7 @@
       const item = currentItem(); if (!item) return; item[field] = value;
       showError('preferences-error', null); if (field !== 'content' && field !== 'prompt') { renderList(); renderLocks(); }
     }
-    $('open-preferences').addEventListener('click', () => { if (!$('open-preferences').disabled) openLibrary(); });
+    if(!adapter.managedNavigation)$('open-preferences').addEventListener('click', () => { if (!$('open-preferences').disabled) openLibrary(); });
     document.querySelectorAll('[data-close-preferences]').forEach(button => button.addEventListener('click', () => {
       if (button.disabled) return;
       if (!librarySaving) closeLibrary();
@@ -153,14 +154,14 @@
         librarySaving = true; showError('preferences-error', null); renderLocks();
         await adapter.saveLibrary(value);
         if (session !== librarySession || saveAccount !== adapter.getAccountId()) return;
-        closeLibrary();
+        if(adapter.keepOpen){librarySaving=false;draft=clone(value);renderDraft();render();}else closeLibrary();
       } catch (error) {
         if (session !== librarySession || saveAccount !== adapter.getAccountId()) return;
         librarySaving = false; showError('preferences-error', error); renderLocks();
       }
     });
     render();
-    return { render, close };
+    return { render, close, open:openLibrary, isBusy:()=>librarySaving };
   }
   root.ReaderPreferencesUI = { mount };
 })(typeof window !== 'undefined' ? window : globalThis);

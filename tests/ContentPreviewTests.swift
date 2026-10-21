@@ -118,7 +118,8 @@ import Vision
                 try controller.open(url: URL(string: base + "/one")!, name: "Loopback fixture")
                 let browser = controller.webView!
                 try check(!browser.configuration.websiteDataStore.isPersistent, "content browser is nonpersistent")
-                try check(browser.configuration.userContentController.userScripts.isEmpty, "content browser has no injected app scripts")
+                let scripts = browser.configuration.userContentController.userScripts
+                try check(scripts.count == 1 && scripts[0].isForMainFrameOnly && scripts[0].injectionTime == .atDocumentEnd && !scripts[0].source.contains("messageHandlers"), "only the main-frame reading layout script is injected; no app bridge")
             }
             first.layout(window.contentView!.bounds, visible: true)
             try check(first.webView !== second.webView, "previews do not share browser instances")
@@ -128,11 +129,12 @@ import Vision
         }
     }
     func inspectBrowser() {
-        first.webView!.evaluateJavaScript("JSON.stringify({bridge:typeof window.webkit?.messageHandlers?.app,text:document.body.innerText,origin:location.origin})") { result, error in
+        first.webView!.evaluateJavaScript("JSON.stringify({bridge:typeof window.webkit?.messageHandlers?.app,reading:typeof globalThis.__weiyueReading,text:document.body.innerText,origin:location.origin})") { result, error in
             self.guarded {
                 if let error { throw error }
                 let object = try JSONSerialization.jsonObject(with: Data((result as! String).utf8)) as! [String: Any]
                 try self.check(object["bridge"] as? String == "undefined", "actual web document has no app bridge")
+                try self.check(object["reading"] as? String == "undefined", "page scripts cannot access the isolated reading controller")
                 try self.check((object["text"] as? String)?.contains("NATIVE WEB PAGE ONE") == true, "native page one renders real HTTP content")
                 try self.check(object["origin"] as? String == self.base, "HTTP fixture stays on loopback")
                 self.first.layout(NSRect(x: 0, y: 0, width: 900, height: 700), visible: false)

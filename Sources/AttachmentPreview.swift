@@ -13,6 +13,16 @@ enum AttachmentPreviewLayout {
         guard validSize(size), validSize(viewport.size) else { return 1 }
         return min(1, viewport.width / size.width, viewport.height / size.height)
     }
+    static func isLongImage(_ size: NSSize) -> Bool {
+        validSize(size) && size.height >= 600 && size.height / size.width >= 2
+    }
+    static func widthScale(_ size: NSSize, in viewport: NSRect) -> CGFloat {
+        guard validSize(size), validSize(viewport.size) else { return 1 }
+        return min(4, viewport.width / size.width)
+    }
+    static func topOffset(_ size: NSSize, in viewport: NSRect, scale: CGFloat, sourceTop: CGFloat = 0) -> NSPoint {
+        clampedOffset(NSPoint(x: 0, y: -max(0, (size.height * scale - viewport.height) / 2) + sourceTop * scale), size: size, viewport: viewport, scale: scale)
+    }
     static func clampedScale(_ requested: CGFloat, fit: CGFloat) -> CGFloat {
         guard requested.isFinite else { return fit }
         return min(8, max(min(0.05, fit), requested))
@@ -60,6 +70,7 @@ final class AttachmentImageView: NSView {
     let imageSize: NSSize
     private(set) var zoomScale: CGFloat = 1
     private(set) var fitsWindow = true
+    private(set) var fitsWidth = false
     private var offset = NSPoint.zero
     private var dragPoint: NSPoint?
     var onClose: (() -> Void)?
@@ -76,14 +87,18 @@ final class AttachmentImageView: NSView {
         let rotated = (image.size.width > image.size.height) != (pixelSize.width > pixelSize.height)
         imageSize = rotated ? NSSize(width: pixelSize.height, height: pixelSize.width) : pixelSize
         super.init(frame: .zero)
+        fitsWidth = AttachmentPreviewLayout.isLongImage(imageSize)
         identifier = NSUserInterfaceItemIdentifier("attachment-preview-image")
         setAccessibilityLabel("图片预览，可捏合缩放，放大后拖动；点击空白或按 Esc 关闭")
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
     override func setFrameSize(_ newSize: NSSize) {
+        let sourceTop = fitsWindow && fitsWidth && zoomScale > 0 && AttachmentPreviewLayout.validSize(bounds.size) ? max(0, imageRect.maxY - bounds.maxY) / zoomScale : 0
         super.setFrameSize(newSize)
-        if fitsWindow { zoomScale = AttachmentPreviewLayout.fitScale(imageSize, in: bounds); offset = .zero }
-        else { offset = AttachmentPreviewLayout.clampedOffset(offset, size: imageSize, viewport: bounds, scale: zoomScale) }
+        if fitsWindow {
+            zoomScale = fitsWidth ? AttachmentPreviewLayout.widthScale(imageSize, in: bounds) : AttachmentPreviewLayout.fitScale(imageSize, in: bounds)
+            offset = fitsWidth ? AttachmentPreviewLayout.topOffset(imageSize, in: bounds, scale: zoomScale, sourceTop: sourceTop) : .zero
+        } else { offset = AttachmentPreviewLayout.clampedOffset(offset, size: imageSize, viewport: bounds, scale: zoomScale) }
         onScaleChanged?(zoomScale, fitsWindow); needsDisplay = true
     }
     func setZoom(_ requested: CGFloat, anchor: NSPoint? = nil) {
@@ -96,8 +111,12 @@ final class AttachmentImageView: NSView {
         offset = AttachmentPreviewLayout.clampedOffset(offset, size: imageSize, viewport: bounds, scale: zoomScale)
         onScaleChanged?(zoomScale, fitsWindow); needsDisplay = true; window?.invalidateCursorRects(for: self)
     }
-    func fitImage() {
-        fitsWindow = true; offset = .zero; zoomScale = AttachmentPreviewLayout.fitScale(imageSize, in: bounds)
+    func fitImage() { fit(width: AttachmentPreviewLayout.isLongImage(imageSize)) }
+    func fitEntireImage() { fit(width: false) }
+    private func fit(width: Bool) {
+        fitsWindow = true; fitsWidth = width
+        zoomScale = width ? AttachmentPreviewLayout.widthScale(imageSize, in: bounds) : AttachmentPreviewLayout.fitScale(imageSize, in: bounds)
+        offset = width ? AttachmentPreviewLayout.topOffset(imageSize, in: bounds, scale: zoomScale) : .zero
         onScaleChanged?(zoomScale, fitsWindow); needsDisplay = true; window?.invalidateCursorRects(for: self)
     }
     override func draw(_ dirtyRect: NSRect) {
@@ -185,9 +204,12 @@ final class AttachmentPreviewController: NSWindowController, NSWindowDelegate {
             toolbar.addArrangedSubview(control("−", id: "preview-zoom-out", label: "缩小图片", action: #selector(zoomOut)))
             toolbar.addArrangedSubview(scaleLabel)
             toolbar.addArrangedSubview(control("+", id: "preview-zoom-in", label: "放大图片", action: #selector(zoomIn)))
-            toolbar.addArrangedSubview(control("适应窗口", id: "preview-fit", label: "图片适应窗口", action: #selector(fitImage)))
+            toolbar.addArrangedSubview(control(AttachmentPreviewLayout.isLongImage(canvas.imageSize) ? "适应宽度" : "适应窗口", id: "preview-fit", label: "图片自动适应窗口", action: #selector(fitImage)))
+            if AttachmentPreviewLayout.isLongImage(canvas.imageSize) {
+                toolbar.addArrangedSubview(control("查看全图", id: "preview-whole", label: "完整显示长图", action: #selector(fitEntireImage)))
+            }
             toolbar.addArrangedSubview(control("100%", id: "preview-actual", label: "图片原始大小", action: #selector(actualSize)))
-            helpLabel.stringValue = "捏合缩放 · 放大后拖动 · 双击切换原始大小 · 点击空白处或按 Esc 关闭"
+            helpLabel.stringValue = AttachmentPreviewLayout.isLongImage(canvas.imageSize) ? "长图已适应宽度 · 上下滚动阅读 · 捏合缩放 · Esc 关闭" : "捏合缩放 · 放大后拖动 · 双击切换原始大小 · 点击空白处或按 Esc 关闭"
         } else {
             let item = AVPlayerItem(url: file), player = AVPlayer()
             let view = AVPlayerView(frame: .zero); view.identifier = NSUserInterfaceItemIdentifier("attachment-preview-video")
@@ -219,15 +241,25 @@ final class AttachmentPreviewController: NSWindowController, NSWindowDelegate {
     }
     private func updateScale(_ scale: CGFloat, fits: Bool) {
         scaleLabel.stringValue = String(format: scale < 0.1 ? "%.1f%%" : "%.0f%%", Double(scale * 100))
-        toolbar.arrangedSubviews.compactMap { $0 as? NSButton }.first { $0.identifier?.rawValue == "preview-fit" }?.state = fits ? .on : .off
+        toolbar.arrangedSubviews.compactMap { $0 as? NSButton }.first { $0.identifier?.rawValue == "preview-fit" }?.state = fits && (imageView?.fitsWidth == true || !AttachmentPreviewLayout.isLongImage(imageView?.imageSize ?? .zero)) ? .on : .off
     }
     private func layoutContents() {
         let bounds = backdrop.bounds
         let area = NSRect(x: 28, y: 38, width: max(1, bounds.width - 56), height: max(1, bounds.height - 100))
         imageView?.frame = area
         playerView?.frame = AttachmentPreviewLayout.fittedRect(videoSize, in: area)
-        let size = toolbar.fittingSize
-        toolbar.frame = NSRect(x: max(20, (bounds.width - size.width) / 2), y: bounds.height - 48, width: size.width, height: 30)
+        let buttons = toolbar.arrangedSubviews.compactMap { $0 as? NSButton }
+        let compact = bounds.width < 680
+        toolbar.spacing = compact ? 4 : 8
+        buttons.forEach { $0.controlSize = compact ? .small : .regular; $0.font = NSFont.systemFont(ofSize: compact ? 11 : 13) }
+        var size = toolbar.fittingSize
+        let available = max(1, bounds.width - 108)
+        if size.width > available {
+            toolbar.spacing = 3
+            buttons.forEach { $0.controlSize = .mini; $0.font = NSFont.systemFont(ofSize: 10) }
+            size = toolbar.fittingSize
+        }
+        toolbar.frame = NSRect(x: max(20, min((bounds.width - size.width) / 2, bounds.width - 88 - size.width)), y: bounds.height - 48, width: size.width, height: 30)
         closeButton.frame = NSRect(x: bounds.width - 78, y: bounds.height - 48, width: 58, height: 30)
         helpLabel.frame = NSRect(x: 20, y: 9, width: max(1, bounds.width - 40), height: 18)
     }
@@ -243,6 +275,7 @@ final class AttachmentPreviewController: NSWindowController, NSWindowDelegate {
     @objc private func closePreview() { close() }
     @objc private func zoomIn() { if let imageView { imageView.setZoom(imageView.zoomScale * 1.25) } }
     @objc private func zoomOut() { if let imageView { imageView.setZoom(imageView.zoomScale / 1.25) } }
+    @objc private func fitEntireImage() { imageView?.fitEntireImage() }
     @objc private func fitImage() { imageView?.fitImage() }
     @objc private func actualSize() { imageView?.setZoom(1) }
     private func releaseContent() {

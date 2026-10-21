@@ -28,6 +28,15 @@ import AppKit
         check(!AttachmentPreviewLayout.validSize(NSSize(width: CGFloat.infinity, height: 900)), "Invalid video dimensions are rejected")
         let video = AttachmentPreviewLayout.fittedRect(NSSize(width: 1920, height: 1080), in: viewport)
         check(near(video.width / video.height, 16 / 9) && viewport.contains(video), "Video retains its aspect ratio within clickable surrounding space")
+        let longSize = NSSize(width: 900, height: 6000)
+        check(AttachmentPreviewLayout.isLongImage(longSize), "Tall screenshot is identified as long")
+        check(!AttachmentPreviewLayout.isLongImage(portrait), "Ordinary portrait still fits entirely")
+        check(!AttachmentPreviewLayout.isLongImage(NSSize(width: 100, height: 400)), "Small emoji is not a long screenshot")
+        let longScale = AttachmentPreviewLayout.widthScale(longSize, in: viewport)
+        let longRect = AttachmentPreviewLayout.imageRect(longSize, in: viewport, scale: longScale, offset: AttachmentPreviewLayout.topOffset(longSize, in: viewport, scale: longScale))
+        check(near(longRect.width, viewport.width) && near(longRect.maxY, viewport.maxY), "Long preview opens at readable width aligned to the top")
+        let scrolled = AttachmentPreviewLayout.imageRect(longSize, in: viewport, scale: longScale, offset: AttachmentPreviewLayout.topOffset(longSize, in: viewport, scale: longScale, sourceTop: 1500))
+        check(near((scrolled.maxY - viewport.maxY) / longScale, 1500), "Resize preserves the reading position in original image coordinates")
         print("PASS: \(checks) attachment-preview route, fit, zoom, pan, content-hit and video-aspect assertions")
     }
 }

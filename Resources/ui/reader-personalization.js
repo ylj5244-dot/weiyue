@@ -8,8 +8,13 @@
   const limits = { members: 200, senderId: 200, name: 100 };
   const trimmed = value => typeof value === 'string' ? value.trim() : '';
   const invalidIdentity = value => !value || /^(?:unknown(?:[:\s]|$)|null$|undefined$|0$)/i.test(value) || value === '粉丝群';
+  function isWithdrawalNotice(message) {
+    if (!message || (Array.isArray(message.attachments) && message.attachments.length)) return false;
+    const value=trimmed(message.text);
+    return /^(?:你|您|我|[^\n，。！？：:]{1,100})撤回了(?:一条|1条)消息[。.!！]?$/.test(value);
+  }
   function isSystemNotice(message) {
-    return !!message && (trimmed(message.senderName) === '粉丝群' || trimmed(message.senderId) === '粉丝群');
+    return !!message && (trimmed(message.senderName) === '粉丝群' || trimmed(message.senderId) === '粉丝群' || isWithdrawalNotice(message));
   }
   function member(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('重点关注成员必须包含成员 ID。');
@@ -167,7 +172,7 @@
       if (dialog.open) close();
       ++session; accountId = state.accountId; draft = read(state); baseline = JSON.stringify(draft); busy = false;
       search.value = ''; manualId.value = ''; manualName.value = ''; showError(null);
-      refreshCatalog(state); renderLists(); dialog.showModal();
+      refreshCatalog(state); renderLists(); if(adapter.openDialog)adapter.openDialog(dialog);else dialog.showModal();
       if (adapter.onDialogChange) adapter.onDialogChange(true);
       search.focus(); return true;
     }
@@ -187,7 +192,7 @@
       }
       if (savingSession !== session) return;
       if (currentState().accountId !== savingAccount) { close(); return; }
-      close(); if (adapter.onChange) adapter.onChange(value);
+      if(adapter.keepOpen){busy=false;draft=value;baseline=JSON.stringify(value);renderLists();status.textContent='已保存';}else close(); if (adapter.onChange) adapter.onChange(value);
     }
     search.addEventListener('input', renderLists);
     manual.addEventListener('submit', addManual); add.addEventListener('click', addManual);
@@ -195,7 +200,7 @@
     dismiss.addEventListener('click', () => { if (!busy) close(); }); cancel.addEventListener('click', () => { if (!busy) close(); });
     dialog.addEventListener('cancel', event => { event.preventDefault(); if (!busy) close(); });
     dialog.addEventListener('close', () => { if (!dialog.open && draft) { close(); if (adapter.onDialogChange) adapter.onDialogChange(false); } });
-    return { open, close, render, element: dialog };
+    return { open, close, render, element: dialog, isBusy:()=>busy };
   }
-  return { limits, isSystemNotice, read, validate, isFollowed, toggle, seenMembers, mount };
+  return { limits, isSystemNotice, isWithdrawalNotice, read, validate, isFollowed, toggle, seenMembers, mount };
 });

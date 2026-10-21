@@ -29,11 +29,11 @@ test('new discussion clears all current sources and draft but preserves saved hi
 });
 test('a newer navigation wins over a deferred density/font anchor restoration', () => {
   const source=fs.readFileSync(require.resolve('../Resources/ui/app.js'),'utf8');
-  const start=source.indexOf('  readingAppearance = window.ReaderReadingAppearance.mount('), end=source.indexOf("\n  $('open-reading-appearance')",start);
+  const start=source.indexOf('  readingAppearance = window.ReaderReadingAppearance.mount('), end=source.indexOf("\n  inlineTranslation =",start);
   assert.ok(start>=0&&end>start,'use the actual appearance integration');
   const calls=[],frames=[];
   let integration;
-  const sandbox={window:{ReaderReadingAppearance:{mount(options){integration=options;return {};}}},rpc(){},native:true,ready:true,demo:false,quitting:false,state:{accountId:'a'},activeGroupId:'g',readingNavigationEpoch:7,visibleMessage:()=>({accountId:'a',groupId:'g',messageId:'230',offset:0}),settleReading(){},scrollToMessage(id){calls.push(id);},requestAnimationFrame(fn){frames.push(fn);},scheduleLayout(){}};
+  const sandbox={window:{ReaderReadingAppearance:{mount(options){integration=options;return {};}}},rpc(){},activeView:'chats',mode:'reader',renderReader(){},native:true,ready:true,demo:false,quitting:false,state:{accountId:'a'},activeGroupId:'g',readingNavigationEpoch:7,visibleMessage:()=>({accountId:'a',groupId:'g',messageId:'230',offset:0}),settleReading(){},scrollToMessage(id){calls.push(id);},requestAnimationFrame(fn){frames.push(fn);},scheduleLayout(){}};
   vm.createContext(sandbox);vm.runInContext(source.slice(start,end),sandbox);
   const anchor=integration.beforeApply();integration.afterApply(anchor);
   assert.deepEqual(calls,['230'],'layout restores immediately');
@@ -41,4 +41,15 @@ test('a newer navigation wins over a deferred density/font anchor restoration', 
   frames.shift()();assert.deepEqual(calls,['230','210'],'a later jump must not be overwritten on the next frame');
   calls.length=0;const next=integration.beforeApply();integration.afterApply(next);frames.shift()();
   assert.deepEqual(calls,['230','230'],'ordinary reflow still settles its original anchor');
+});
+
+test('a later bookmark jump is not overwritten by a queued pane-resize restoration',()=>{
+ const source=fs.readFileSync(require.resolve('../Resources/ui/app.js'),'utf8');
+ const start=source.indexOf("  window.addEventListener('weiyue:layout-start'"),end=source.indexOf("  window.addEventListener('resize'",start);
+ const listeners={},frames=[],calls=[];
+ const box={resizingAnchor:null,readingNavigationEpoch:4,state:{accountId:'a'},activeGroupId:'g',userScrollUntil:0,suppressScrollUntil:0,Date,window:{addEventListener:(name,fn)=>listeners[name]=fn},visibleMessage:()=>({accountId:'a',groupId:'g',messageId:'before-resize',offset:0}),scrollToMessage:id=>calls.push(id),scheduleLayout(){},requestAnimationFrame:fn=>frames.push(fn)};
+ vm.createContext(box);vm.runInContext(source.slice(start,end),box);
+ listeners['weiyue:layout-start']();listeners['weiyue:layout-end']();
+ box.readingNavigationEpoch++;calls.push('new-bookmark');frames.forEach(fn=>fn());
+ assert.equal(calls.at(-1),'new-bookmark');
 });
