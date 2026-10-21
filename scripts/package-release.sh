@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
-VERSION="1.0.11"
-BUILD="17"
+VERSION="1.0.12"
+BUILD="18"
 SKIP_BUILD=0
 EXTRA_SOURCES=()
 while [ "$#" -gt 0 ]; do
@@ -13,7 +13,7 @@ while [ "$#" -gt 0 ]; do
       if [ "$#" -lt 2 ]; then printf '%s\n' '--extra-source 后须提供仓库内相对路径。' >&2; exit 1; fi
       EXTRA_SOURCES+=("$2"); shift 2 ;;
     --help|-h)
-      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.11 (17) 双架构构建。' '产物：build/releases/ 中的 DMG、应用 ZIP、源码 ZIP、安装说明和 SHA256SUMS.txt。'; exit 0 ;;
+      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.12 (18) 双架构构建。' '产物：build/releases/ 中的 DMG、应用 ZIP、源码 ZIP、安装说明和 SHA256SUMS.txt。'; exit 0 ;;
     *) printf '未知参数：%s\n' "$1" >&2; exit 1 ;;
   esac
 done
@@ -84,13 +84,18 @@ for (const file of extras) {
 }
 const v110Sources = ["Sources/StorageUsage.swift", "Sources/RetentionPolicy.swift", "Sources/AutomaticCleanup.swift", "Sources/ContentPreview.swift", "Resources/ui/storage-management.js", "Resources/ui/content-preview.js", "Resources/ui/storage-preview.css", "Resources/ui/reader-discovery.js", "Resources/ui/reader-discovery.css", "tests/StorageUsageTests.swift", "tests/RetentionPolicyTests.swift", "tests/AutomaticCleanupTests.swift", "tests/ContentPreviewTests.swift", "tests/StoragePreviewUIHarness.swift", "tests/storage-management.test.cjs", "tests/storage-rpc.test.cjs", "tests/reader-discovery.test.cjs", "scripts/test-storage-preview-ui.sh", "docs/storage-preview-v110.md", "docs/verification-v110.md"];
 for (const file of v110Sources) {
-  if (!fs.existsSync(path.join(root, file))) throw new Error(`源码包缺少 1.0.11 文件：${file}`);
+  if (!fs.existsSync(path.join(root, file))) throw new Error(`源码包缺少 1.0.12 文件：${file}`);
   candidates.push(file);
 }
 const v111Sources = ['Resources/ui/message-sizing.js','Resources/ui/reading-text.js','Resources/ui/settings-navigation.js','Resources/ui/settings-navigation.css','Resources/ui/weibo-emoticons.js','tests/message-sizing.test.cjs','tests/reading-text.test.cjs','tests/ReadingRefinementUIHarness.swift','tests/ContentPreviewResponsiveTests.swift','scripts/test-reading-refinement-ui.sh','scripts/test-content-preview-responsive.sh','docs/reading-refinement-v111.md','docs/verification-v111.md','docs/weibo-emoticons.md'];
 const emoticonPaths = new Set(Object.values(require(path.join(root,'Resources/ui/weibo-emoticons.js'))).map(file=>'Resources/ui/'+file));
 for(const file of [...v111Sources,...emoticonPaths]){
-  if(!fs.existsSync(path.join(root,file)))throw new Error(`源码包缺少 1.0.11 文件：${file}`);
+  if(!fs.existsSync(path.join(root,file)))throw new Error(`源码包缺少 1.0.12 文件：${file}`);
+  candidates.push(file);
+}
+const v112Sources = ['Resources/ui/compact-reader.js','Resources/ui/compact-reader.css','tests/compact-reader.test.cjs','tests/CompactReaderUIHarness.swift','scripts/test-compact-reader-ui.sh','docs/compact-reader-v112.md','docs/verification-v112.md'];
+for (const file of v112Sources) {
+  if (!fs.existsSync(path.join(root,file))) throw new Error(`源码包缺少 1.0.12 文件：${file}`);
   candidates.push(file);
 }
 const rootFiles = new Set(['README.md', 'LICENSE', '.gitignore', 'design-qa.md']);
@@ -138,20 +143,18 @@ console.log(`已导出 ${files.length} 份源码/文档；不含 Git、构建产
 NODE
 
 cat > "$WORK/产物/$STEM-安装说明.txt" <<'NOTE'
-微阅 1.0.11（构建 17）安装说明
+微阅 1.0.12（构建 18）安装说明
 
 适用：macOS 14 或更新版本，Apple Silicon 与 Intel Mac。
 
-1.0.11 更新：
-- 当前群专注阅读中切换「全部发言 / 只看关注」，关注成员更醒目，连续消息只在组首显示姓名和标志。
-- 消息背景根据内容与字号收放，五档连续消息间距拉开差别；搜索与类型筛选同排并随窗口调整。
-- 点开长图后按窗口宽度从顶部阅读，可滚动、查看全图；聊天缩略图保持紧凑。
-- 右侧网页根据栏宽调整正文和图片，可切回原网页；文档继续使用原生预览。
-- 显示 [二哈] 等常见微博表情，专注阅读隐藏完整的撤回通知。
-- 设置改为左分类、右内容，切换及清理往返保留未保存输入。
-- 保留存储与定时清理、书签、收藏、AI 历史拟题、三套日夜皮肤及后台运行。
+1.0.12 更新：
+- 阅读顶部收紧为群信息和常用工具两行，宽阅读栏的搜索、关注、类型、筛选、时段总结和字号同排。
+- 群名旁显示同步状态，点开查看详细进度、本地记录范围、立即同步和加载更早消息。
+- 成员与日期筛选收进下拉菜单；使用中的筛选显示条件及清除入口。
+- 返回跳转前、最新和手动续读点移至阅读区右下角，并避让多选操作栏。
+- 保留消息正文样式、关注分组、表情、网页与附件预览、存储清理和原有阅读位置。
 
-1. 打开「微阅-1.0.11-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
+1. 打开「微阅-1.0.12-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
 2. 如果正在使用旧版，先通过菜单「退出微阅」或 Command+Q 退出，再替换应用；不要删除本地资料目录。
    旧版若在个人 ~/Applications/ 目录，请拖到原位置替换，避免保留两份而误开旧版。
 3. 从「应用程序」打开微阅。更新同一台 Mac 的应用通常保留原资料和钥匙串中的 Key。

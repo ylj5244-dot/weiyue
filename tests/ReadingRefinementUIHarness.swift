@@ -255,7 +255,7 @@ __observations.scope=initial.includeWidths?'complete':'core-only';
 __observations.section='compact search and message types';
 assert([...document.querySelectorAll('[data-message-type]')].map(b=>b.dataset.messageType).join(',')==='all,link,image,document,video','five message type controls present');
 for(const width of [926,560,430]){
-  await fitReader(width);const pane=rect($('reader-area')),row=document.querySelector('.reader-search-row'),search=rect(document.querySelector('.message-search')),buttons=[...document.querySelectorAll('[data-message-type]')].map(rect);
+  await fitReader(width);const pane=rect($('reader-area')),row=document.querySelector('.reader-search-row')||document.querySelector('.reader-tools'),search=rect(document.querySelector('.message-search')),buttons=[...document.querySelectorAll('[data-message-type]')].map(rect);
   assert(search.width>=80&&search.width<=281,'compact search has useful bounded width at '+width);
   for(const b of buttons)assert(Math.abs((b.top+b.bottom-search.top-search.bottom)/2)<2,'search and every type share one row at '+width);
   assert(row.scrollWidth<=row.clientWidth+1,'search row has no horizontal overflow at '+width);

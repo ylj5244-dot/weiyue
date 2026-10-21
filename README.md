@@ -6,7 +6,7 @@ Mac 上的微博群聊阅读与 AI 讨论工具。把消息读清楚，把资料
 
 [📦 下载 Mac 安装包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.9/weiyue-1.0.9-macOS-universal.dmg) · [🗜️ ZIP 备用包](https://github.com/ylj5244-dot/weiyue/releases/download/v1.0.9/weiyue-1.0.9-macOS-universal.zip) · [📋 全部下载与说明](https://github.com/ylj5244-dot/weiyue/releases/latest)
 
-适用 macOS 14 及以上，安装包包含 Apple Silicon 与 Intel 架构。打开 DMG，将「微阅」拖入「应用程序」即可。公开下载版本 1.0.9；当前源码及本机构建为 1.0.11。
+适用 macOS 14 及以上，安装包包含 Apple Silicon 与 Intel 架构。打开 DMG，将「微阅」拖入「应用程序」即可。公开下载版本 1.0.9；当前源码及本机构建为 1.0.12。
 
 应用尚未完成 Apple 签名与公证，首次打开可能被系统拦截，请参阅[安装说明](docs/install-and-build.md)。Intel 已交叉编译，尚未完成真机验收。
 
@@ -44,7 +44,7 @@ Mac 上的微博群聊阅读与 AI 讨论工具。把消息读清楚，把资料
 
 ## 📚 更多说明
 
-[完整使用指南](docs/user-guide.md) · [安装、迁移与源码构建](docs/install-and-build.md) · [1.0.11 使用说明](docs/reading-refinement-v111.md) · [验收记录](docs/verification-v111.md)
+[完整使用指南](docs/user-guide.md) · [安装、迁移与源码构建](docs/install-and-build.md) · [1.0.12 使用说明](docs/compact-reader-v112.md) · [验收记录](docs/verification-v112.md)
 
 ## 📜 开源许可
 
