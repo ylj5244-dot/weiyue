@@ -140,3 +140,56 @@ test('cross-group source jumps close the active menu before replacing the readin
   vm.createContext(box);vm.runInContext(appFunction('jumpTo'),box);box.jumpTo('other','m');
   assert.equal(calls[0],'close');assert.equal(box.activeGroupId,'other');assert.equal(box.mode,'reader');
 });
+
+function officialCountFixture() {
+  const vm=require('node:vm'),M=require('../Resources/ui/model.js'),P=require('../Resources/ui/reader-performance.js');
+  const state=M.createState('a'),nodes=new Map(),timers=[];
+  M.upsertGroups(state,[{id:'g',name:'当前群',selected:true},{id:'other',name:'其他群',selected:true}]);
+  const message=(id,props={})=>({id,groupId:'g',senderId:'u',senderName:'成员',sentAt:'2026-10-21T02:00:00Z',text:'needle',attachments:[{type:'document',name:'needle.pdf'}],...props});
+  M.ingestMessages(state,'g',[message('old'),message('notice',{text:'成员撤回了一条消息',attachments:[]})]);
+  const $=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',hidden:false,disabled:false,dataset:{},classList:{toggle(){}},setAttribute(k,v){this[k]=v;}});return nodes.get(id);};
+  const box={M,P,state,$,window:{ReaderCompact:C,ReaderPersonalization:require('../Resources/ui/reader-personalization.js')},ReaderDiscovery:require('../Resources/ui/reader-discovery.js'),
+    activeGroupId:'g',activeView:'chats',mode:'official',messageType:'all',readerFollowedOnly:false,memberId:'',focusedSource:null,
+    archiveDirty:true,archiveIndex:null,syncDirtyGroups:new Set(),syncRenderTimer:0,syncStates:new Map(),native:true,demo:false,ready:true,loadFailed:false,quitting:false,
+    text:(id,value)=>$(id).textContent=value,show:(id,visible)=>$(id).hidden=!visible,fullDate:value=>value,clockDate:value=>value,
+    setTimeout:fn=>{timers.push(fn);return timers.length;},renderSidebar(){},renderReader(){assert.fail('official updates must not render hidden message DOM');},banner(message){assert.fail(message);},errorText:error=>error.message};
+  const source=fs.readFileSync(require.resolve('../Resources/ui/app.js'),'utf8');
+  const functions=['currentGroup','archive','isFiltered','searchOptions','renderHeader','renderSyncStatus','scheduleSyncedRender'];
+  // Load the shared result helpers when present; the old application still runs
+  // through its real header/scheduler path and reproduces the stale-count bug.
+  for(const name of ['readerResultMessages','renderReaderResultCount'])if(source.includes('  function '+name+'('))functions.push(name);
+  vm.createContext(box);vm.runInContext(functions.map(appFunction).join('\n'),box);
+  $('result-count').textContent='1 条本地消息';
+  function append(messages,groupId='g') {
+    M.ingestMessages(state,groupId,messages);box.archiveDirty=true;box.scheduleSyncedRender(groupId);
+    while(timers.length)timers.shift()();
+  }
+  return {box,$,state,message,append};
+}
+test('official live updates refresh local coverage and visible counts while excluding withdrawal notices',()=>{
+  const f=officialCountFixture();
+  f.append([f.message('new'),f.message('new-notice',{text:'你撤回了一条消息',attachments:[]})]);
+  assert.match(f.$('coverage-text').textContent,/本地 4 条/);
+  assert.equal(f.$('result-count').textContent,'2 条本地消息');
+  f.append([f.message('elsewhere',{groupId:'other'})],'other');
+  assert.equal(f.$('result-count').textContent,'2 条本地消息','another group cannot change this group count');
+});
+test('official live updates preserve combined query, type, member, audience and date counts',()=>{
+  const f=officialCountFixture();
+  f.box.messageType='document';f.box.memberId='u';f.box.readerFollowedOnly=true;f.state.settings.followedMembers=[{senderId:'u',name:'成员'}];
+  f.$('message-search').value='needle';f.$('date-from').value='2026-10-21';f.$('date-to').value='2026-10-21';
+  f.$('result-count').textContent='1 条匹配消息';
+  f.append([f.message('match'),f.message('wrong-member',{senderId:'v'}),f.message('wrong-type',{attachments:[{type:'link',url:'https://example.invalid/needle'}]}),f.message('wrong-day',{sentAt:'2026-10-19T02:00:00Z'}),f.message('wrong-query',{text:'other',attachments:[{type:'document',name:'other.pdf'}]})]);
+  assert.match(f.$('coverage-text').textContent,/本地 7 条/);
+  assert.equal(f.$('result-count').textContent,'2 条匹配消息');
+  assert.equal(f.$('filter-result-count').textContent,'2 条匹配');
+});
+test('official count refresh retains summary source snapshots without duplication or filter leakage',()=>{
+  const f=officialCountFixture();
+  f.box.focusedSource={...f.message('snapshot',{text:'orphan source',attachments:[]}),accountId:'a'};
+  f.$('result-count').textContent='2 条消息 · 含总结来源快照';
+  f.append([f.message('new')]);assert.equal(f.$('result-count').textContent,'3 条消息 · 含总结来源快照');
+  f.append([f.box.focusedSource]);assert.equal(f.$('result-count').textContent,'3 条消息 · 含总结来源快照','newly saved source is counted once');
+  f.$('message-search').value='needle';f.box.renderHeader();assert.equal(f.$('result-count').textContent,'2 条匹配消息','filters continue excluding a nonmatching source snapshot');
+  f.$('message-search').value='';f.box.renderHeader();assert.equal(f.$('result-count').textContent,'3 条消息 · 含总结来源快照');
+});

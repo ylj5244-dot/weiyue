@@ -524,6 +524,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     let coverage = '本地尚未保存消息 · 在「管理」中开启同步';
     if (messages.length) coverage = '本地 ' + messages.length + ' 条 · ' + fullDate(messages[0].sentAt) + ' 至 ' + fullDate(messages[messages.length - 1].sentAt) + ' · 非完整历史';
     text('coverage-text', coverage); $('coverage-text').title = coverage;
+    renderReaderResultCount();
     $('mode-official').classList.toggle('selected', mode === 'official'); $('mode-reader').classList.toggle('selected', mode === 'reader');
     text('ai-model-label', state.settings.model || '设置模型');
     renderSyncStatus();
@@ -613,14 +614,23 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if ($('date-to').value) options.to = new Date($('date-to').value + 'T23:59:59.999').toISOString();
     return options;
   }
-  function renderReader(options = {}) {
-    const scroll = $('reader-scroll'), oldScroll = scroll.scrollTop, previousAnchor = options.anchor || ReaderViewPolicy.captureRenderAnchor(options, rememberVisibleAnchor);
-    suppressScrollUntil = Date.now() + 200;
-    const group = currentGroup(), filter = isFiltered();
+  function readerResultMessages(filter = isFiltered()) {
+    const group = currentGroup();
     let messages = [];
     if (group) { try { messages = archive().search(searchOptions()); } catch (error) { banner(errorText(error)); } }
     if (!filter && focusedSource && focusedSource.accountId === state.accountId && focusedSource.groupId === activeGroupId && !messages.some(message=>message.id===focusedSource.id)) messages = [...messages,focusedSource].sort((a,b)=>Date.parse(a.sentAt)-Date.parse(b.sentAt)||a.id.localeCompare(b.id));
-    messages = messages.filter(message => !window.ReaderPersonalization.isSystemNotice(message));
+    return messages.filter(message => !window.ReaderPersonalization.isSystemNotice(message));
+  }
+  function renderReaderResultCount(messages = readerResultMessages(), filter = isFiltered()) {
+    // Sync details remain visible in official mode, where incoming messages do
+    // not repaint the reader. Derive both counts from the same current results.
+    text('result-count', messages.length + (filter ? ' 条匹配消息' : focusedSource ? ' 条消息 · 含总结来源快照' : ' 条本地消息'));
+    text('filter-result-count', messages.length + ' 条匹配');
+  }
+  function renderReader(options = {}) {
+    const scroll = $('reader-scroll'), oldScroll = scroll.scrollTop, previousAnchor = options.anchor || ReaderViewPolicy.captureRenderAnchor(options, rememberVisibleAnchor);
+    suppressScrollUntil = Date.now() + 200;
+    const group = currentGroup(), filter = isFiltered(), messages = readerResultMessages(filter);
     const member = memberId && M.findMembers(state, activeGroupId, '').find(m=>m.id===memberId);
     document.querySelectorAll('[data-message-type]').forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.messageType===messageType)));
     $('member-filter-button').replaceChildren(node('span', '', member ? shortText(member.name, 8) : readerFollowedOnly?'关注成员':'全部成员'), node('span', 'down-chevron', '⌄'));
@@ -628,10 +638,9 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     $('reader-area').classList.toggle('reading-followed-only',readerFollowedOnly);
     $('member-filter-button').classList.toggle('active', !!memberId);
     $('date-filter-button').classList.toggle('active', !!($('date-from').value || $('date-to').value));
-    text('result-count', messages.length + (filter ? ' 条匹配消息' : focusedSource ? ' 条消息 · 含总结来源快照' : ' 条本地消息'));
+    renderReaderResultCount(messages, filter);
     const conditions = window.ReaderCompact.activeFilters({ query:$('message-search').value, type:messageType, memberId, memberName:member && member.name || '', from:$('date-from').value, to:$('date-to').value, followed:readerFollowedOnly });
     $('active-filter-summary').replaceChildren(...conditions.map(label => { const chip=node('span', '', label);chip.title=label;return chip; }));
-    text('filter-result-count', messages.length + ' 条匹配');
     $('reader-filter-button').classList.toggle('active', filter);
     $('reader-filter-button').setAttribute('aria-label', filter ? '筛选消息，当前条件：' + conditions.join('；') : '筛选消息');
     show('reader-summary', filter); show('clear-filters', filter); renderProgressButtons();
