@@ -349,10 +349,18 @@ private struct StateValidator {
 }
 
 final class StateStore {
+    private struct ValidatedSnapshot {
+        let data: Data
+        let canonicalData: Data
+        let revision: Int
+    }
     let directory: URL
     private let lock = NSRecursiveLock()
     private var highestRevision: [String: Int] = [:]
     private var acceptedData: [String: Data] = [:]
+    // Main, backup, and the candidate being written. Cache immutable bytes only;
+    // mutable dictionaries from a caller or load() never become trusted state.
+    private var validatedSnapshots: [String: [ValidatedSnapshot]] = [:]
     init(directory: URL) throws {
         self.directory = directory
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
@@ -378,15 +386,34 @@ final class StateStore {
         guard JSONSerialization.isValidJSONObject(state) else { throw ReaderError.message("资料包含无法保存的值，原文件未更改。") }
         return try JSONSerialization.data(withJSONObject: state, options: [.sortedKeys])
     }
-    private func remember(_ state: [String: Any], accountId: String) throws {
-        highestRevision[accountId] = state["revision"] as? Int
-        acceptedData[accountId] = try canonical(state)
+    private func cache(_ snapshot: ValidatedSnapshot, accountId: String) {
+        var values = validatedSnapshots[accountId] ?? []
+        values.removeAll { $0.data == snapshot.data }
+        values.append(snapshot)
+        if values.count > 3 { values.removeFirst(values.count - 3) }
+        validatedSnapshots[accountId] = values
     }
-    private func verifiedWrite(_ data: Data, to file: URL, accountId: String) throws {
+    private func snapshot(_ data: Data, accountId: String, alreadyCanonical: Bool = false) throws -> ValidatedSnapshot {
+        if let cached = validatedSnapshots[accountId]?.first(where: { $0.data == data || $0.canonicalData == data }) { return cached }
+        let state = try decode(data, accountId: accountId)
+        let sorted = alreadyCanonical ? data : try canonical(state)
+        let value = ValidatedSnapshot(data: data, canonicalData: sorted == data ? data : sorted, revision: state["revision"] as! Int)
+        cache(value, accountId: accountId)
+        return value
+    }
+    private func remember(_ snapshot: ValidatedSnapshot, accountId: String) {
+        highestRevision[accountId] = snapshot.revision
+        acceptedData[accountId] = snapshot.canonicalData
+        cache(snapshot, accountId: accountId)
+    }
+    private func verifiedWrite(_ snapshot: ValidatedSnapshot, to file: URL) throws {
+        let data = snapshot.canonicalData
         try data.write(to: file, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
-        let persisted = try decode(Data(contentsOf: file), accountId: accountId)
-        guard try canonical(persisted) == data else { throw ReaderError.message("保存后验证失败。请保留资料文件并重试。") }
+        // These exact bytes have already passed full semantic validation. A
+        // byte-for-byte readback verifies the atomic write without parsing and
+        // validating every message again, including for the backup rotation.
+        guard try Data(contentsOf: file) == data else { throw ReaderError.message("保存后验证失败。请保留资料文件并重试。") }
     }
     func load(accountId: String) throws -> StateLoad {
         lock.lock(); defer { lock.unlock() }
@@ -397,11 +424,13 @@ final class StateStore {
             return StateLoad(state: Self.empty(accountId: accountId), warning: nil)
         }
         if let data = try? Data(contentsOf: file), let state = try? decode(data, accountId: accountId) {
-            try remember(state, accountId: accountId)
+            let sorted = try canonical(state)
+            remember(ValidatedSnapshot(data: data, canonicalData: sorted == data ? data : sorted, revision: state["revision"] as! Int), accountId: accountId)
             return StateLoad(state: state, warning: nil)
         }
         if let data = try? Data(contentsOf: backup), let state = try? decode(data, accountId: accountId) {
-            try remember(state, accountId: accountId)
+            let sorted = try canonical(state)
+            remember(ValidatedSnapshot(data: data, canonicalData: sorted == data ? data : sorted, revision: state["revision"] as! Int), accountId: accountId)
             return StateLoad(state: state, warning: "主资料文件无法读取，已恢复上一次安全备份；最近一次操作可能需要重新完成。")
         }
         throw ReaderError.message("本地资料及备份无法读取。已保留原文件，请不要重新初始化资料。")
@@ -410,43 +439,68 @@ final class StateStore {
         lock.lock(); defer { lock.unlock() }
         guard !accountId.isEmpty else { throw ReaderError.message("请先登录微博，再保存账号资料。") }
         let data = try canonical(state)
-        let valid = try decode(data, accountId: accountId)
-        let revision = valid["revision"] as! Int
+        let valid = try snapshot(data, accountId: accountId, alreadyCanonical: true)
+        let revision = valid.revision
         let file = fileURL(accountId: accountId)
         let backupFile = file.appendingPathExtension("backup")
+        // Always read both files. Only identical bytes may reuse validation;
+        // file dates, sizes, and remembered revisions are not integrity checks.
         let existingData = try? Data(contentsOf: file)
-        let existing = existingData.flatMap { try? decode($0, accountId: accountId) }
-        let backup = (try? Data(contentsOf: backupFile)).flatMap { try? decode($0, accountId: accountId) }
+        let existing = existingData.flatMap { try? snapshot($0, accountId: accountId) }
+        let backup = (try? Data(contentsOf: backupFile)).flatMap { try? snapshot($0, accountId: accountId) }
         let filesExist = FileManager.default.fileExists(atPath: file.path) || FileManager.default.fileExists(atPath: backupFile.path)
         guard !filesExist || existing != nil || backup != nil else {
             throw ReaderError.message("现有资料及备份无法验证，已拒绝覆盖唯一原文件。请先恢复资料。")
         }
-        let latest = max(highestRevision[accountId] ?? -1, max(existing?["revision"] as? Int ?? -1, backup?["revision"] as? Int ?? -1))
+        let latest = max(highestRevision[accountId] ?? -1, max(existing?.revision ?? -1, backup?.revision ?? -1))
         guard revision >= latest else { throw ReaderError.message("较旧的保存请求已拒绝，现有阅读进度未被覆盖。") }
         if revision == latest {
-            let reference = [existing, backup].compactMap { $0 }.first { $0["revision"] as? Int == latest }
-            if let reference, try canonical(reference) != data {
+            let reference = [existing, backup].compactMap { $0 }.first { $0.revision == latest }
+            if let reference, reference.canonicalData != data {
                 throw ReaderError.message("相同版本包含不同资料，已拒绝覆盖现有快照。请重新载入后再保存。")
             }
             if highestRevision[accountId] == latest, let accepted = acceptedData[accountId], accepted != data {
                 throw ReaderError.message("相同版本包含不同资料，已拒绝覆盖已确认的快照。")
             }
         }
-        if let existing, try canonical(existing) == data {
+        if let existing, existing.canonicalData == data {
             // A flush retry is idempotent: retain the previous recoverable revision.
-            if backup == nil { try verifiedWrite(data, to: backupFile, accountId: accountId) }
-            try remember(valid, accountId: accountId)
+            if backup == nil { try verifiedWrite(valid, to: backupFile) }
+            remember(valid, accountId: accountId)
             return
         }
-        if let existing, (existing["revision"] as? Int ?? -1) >= (backup?["revision"] as? Int ?? -1) {
-            try verifiedWrite(canonical(existing), to: backupFile, accountId: accountId)
+        if let existing, existing.revision >= (backup?.revision ?? -1) {
+            try verifiedWrite(existing, to: backupFile)
         } else if backup == nil {
             // Establish recovery before the first main write; do not rotate a good
             // backup to a damaged main when repairing a recovered account.
-            try verifiedWrite(data, to: backupFile, accountId: accountId)
+            try verifiedWrite(valid, to: backupFile)
         }
-        try verifiedWrite(data, to: file, accountId: accountId)
-        try remember(valid, accountId: accountId)
+        try verifiedWrite(valid, to: file)
+        remember(valid, accountId: accountId)
+    }
+    func compactBackup(state: [String: Any], accountId: String) throws {
+        lock.lock(); defer { lock.unlock() }
+        let data = try canonical(state)
+        let valid = try snapshot(data, accountId: accountId, alreadyCanonical: true)
+        guard highestRevision[accountId] == valid.revision, acceptedData[accountId] == data else {
+            throw ReaderError.message("清理后的资料尚未保存并确认，已保留原备份。")
+        }
+        let file = fileURL(accountId: accountId), backupFile = file.appendingPathExtension("backup")
+        guard let currentData = try? Data(contentsOf: file),
+              let current = try? snapshot(currentData, accountId: accountId),
+              current.revision == valid.revision, current.canonicalData == data else {
+            throw ReaderError.message("主资料与已确认的清理结果不一致，已保留原备份。")
+        }
+        if let backupData = try? Data(contentsOf: backupFile),
+           let backup = try? snapshot(backupData, accountId: accountId),
+           backup.revision > valid.revision || (backup.revision == valid.revision && backup.canonicalData != data) {
+            throw ReaderError.message("备份含有较新或不同的资料，已拒绝覆盖。")
+        }
+        // Retention explicitly requests removal of the old cache from both
+        // copies, only after the cleaned main was durably saved and rechecked.
+        // Ordinary save() still rotates the previous recoverable revision.
+        try verifiedWrite(valid, to: backupFile)
     }
     func validate(state: [String: Any], accountId: String) throws {
         // Validation is side-effect free and lets destructive-looking transactions

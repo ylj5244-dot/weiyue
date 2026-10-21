@@ -42,14 +42,14 @@ test('new single collection is direct, uses an automatic title, and reuses its i
 });
 for (const kind of ['bookmark', 'collection']) test(kind + ' failed creation rolls back and retries the same target/identity without duplicates', async () => {
   const h = harness(), field = kind === 'bookmark' ? 'bookmarks' : 'collections'; let promise = h.controller.toggle(kind, h.message()); const id = h.state[field][0].id;
-  assert.equal(h.controller.status(kind, h.message()).pressed, false, 'pending addition must not announce success'); assert.equal(h.controller.status(kind, h.message()).saving, true);
+  assert.equal(h.controller.status(kind, h.message()).pressed, true, 'pending addition immediately shows its target'); assert.equal(h.controller.status(kind, h.message()).saving, true);
   await h.controller.toggle(kind, h.message()); assert.equal(h.saves.length, 1); h.saves[0].reject(new Error('disk failed')); await promise;
   assert.equal(h.state[field].length, 0); assert.equal(h.controller.status(kind, h.message()).pressed, false); assert.ok(h.controller.status(kind, h.message()).error); assert.equal(h.rollbacks.length, 1);
   promise = h.controller.toggle(kind, h.message()); assert.equal(h.state[field][0].id, id); h.saves.at(-1).resolve({}); await promise; assert.equal(h.state[field].length, 1); assert.equal(h.controller.status(kind, h.message()).pressed, true);
 });
 for (const kind of ['bookmark', 'collection']) test(kind + ' failed cancellation retains prior metadata and retries cancellation', async () => {
   const h = harness(); await commit(h, kind); const field = kind === 'bookmark' ? 'bookmarks' : 'collections', record = h.state[field][0]; if (kind === 'bookmark') record.note = 'preserve remark'; const before = JSON.stringify(record);
-  const promise = h.controller.toggle(kind, h.message()); assert.equal(h.controller.status(kind, h.message()).pressed, true); h.saves.at(-1).reject(new Error('disk failed')); await promise;
+  const promise = h.controller.toggle(kind, h.message()); assert.equal(h.controller.status(kind, h.message()).pressed, false); assert.equal(h.controller.status(kind, h.message()).saving, true); h.saves.at(-1).reject(new Error('disk failed')); await promise;
   assert.equal(JSON.stringify(record), before); await commit(h, kind); assert.ok(record.deletedAt); assert.equal(h.state[field].length, 1); if (kind === 'bookmark') assert.equal(record.note, 'preserve remark');
 });
 test('failed manual change restores the previous manual anchor without rolling back a newer auto position', async () => {
@@ -57,6 +57,33 @@ test('failed manual change restores the previous manual anchor without rolling b
   const promise = h.controller.toggle('manual', h.message()); await h.controller.toggle('manual', h.message('2')); assert.equal(h.saves.length, 1, 'one manual operation per group');
   M.setProgress(h.state, { groupId: 'g', messageId: '1', kind: 'auto', offset: 33, now: NOW }); h.saves[0].reject(new Error('disk failed')); await promise;
   assert.equal(JSON.stringify(h.state.progress.g.manual), oldManual); assert.equal(h.state.progress.g.auto.offset, 33); await commit(h, 'manual'); assert.equal(h.state.progress.g.manual.messageId, '1');
+});
+test('manual destination changes immediately during save and returns to the prior destination on failure', async () => {
+  const h = harness(); M.setProgress(h.state, { groupId: 'g', messageId: '2', kind: 'manual', offset: 9, now: NOW });
+  const promise = h.controller.toggle('manual', h.message());
+  assert.deepEqual(h.controller.status('manual', h.message()), { pressed: true, saving: true, error: '' });
+  assert.deepEqual(h.controller.status('manual', h.message('2')), { pressed: false, saving: true, error: '' });
+  assert.deepEqual(h.events, ['change'], 'save completion is never announced optimistically');
+  h.saves[0].reject(new Error('disk failed')); await promise;
+  assert.equal(h.controller.status('manual', h.message()).pressed, false);
+  assert.equal(h.controller.status('manual', h.message('2')).pressed, true);
+  const remove = h.controller.toggle('manual', h.message('2'));
+  assert.deepEqual(h.controller.status('manual', h.message('2')), { pressed: false, saving: true, error: '' });
+  h.saves.at(-1).resolve({}); await remove;
+  assert.equal(h.controller.status('manual', h.message('2')).pressed, false);
+});
+test('6000 loaded messages show bookmark feedback before a slow disk save resolves and retain later arrivals on failure', async () => {
+  const h = harness();
+  h.state.messages.push(...Array.from({ length: 5996 }, (_, index) => ({ ...h.message(), id: 'bulk-' + index })));
+  const before = h.state.messages.length, promise = h.controller.toggle('bookmark', h.message());
+  assert.equal(before, 6000);
+  assert.deepEqual(h.controller.status('bookmark', h.message()), { pressed: true, saving: true, error: '' });
+  assert.deepEqual(h.events, ['change']);
+  M.ingestMessages(h.state, 'g', [{ ...h.message(), id: 'later-arrival' }]);
+  h.saves[0].reject(new Error('slow save failed')); await promise;
+  assert.equal(h.controller.status('bookmark', h.message()).pressed, false);
+  assert.equal(h.state.messages.length, before + 1);
+  assert.ok(h.state.messages.some(message => message.id === 'later-arrival'));
 });
 test('manual save rollback handles legal group IDs that match inherited object properties', async () => {
   for (const groupId of ['__proto__', 'constructor']) {
@@ -79,7 +106,7 @@ test('a stale message from another account never targets matching IDs in the cur
 test('failed new bookmark preserves a remark edited while its first save was pending', async () => {
   const h = harness(), promise = h.controller.toggle('bookmark', h.message()), b = h.state.bookmarks[0]; b.note = 'newer remark';
   h.saves[0].reject(new Error('disk failed')); await promise; assert.equal(h.state.bookmarks[0], b); assert.equal(b.note, 'newer remark'); assert.equal(h.controller.status('bookmark', h.message()).pressed, false);
-  const retry = h.controller.toggle('bookmark', h.message()); assert.equal(h.controller.status('bookmark', h.message()).pressed, false); h.saves.at(-1).resolve({}); await retry;
+  const retry = h.controller.toggle('bookmark', h.message()); assert.equal(h.controller.status('bookmark', h.message()).pressed, true); h.saves.at(-1).resolve({}); await retry;
   assert.equal(h.state.bookmarks.length, 1); assert.equal(h.state.bookmarks[0], b); assert.equal(h.controller.status('bookmark', h.message()).pressed, true);
 });
 test('failed new collection preserves a later rename and a new discussion reference', async () => {
@@ -87,7 +114,7 @@ test('failed new collection preserves a later rename and a new discussion refere
     const h = harness(), promise = h.controller.toggle('collection', h.message()), c = h.state.collections[0]; if (rename) c.name = 'newer name';
     h.state.discussions.push({ id: 'new-discussion', collectionId: c.id, content: 'do not orphan' });
     h.saves[0].reject(new Error('disk failed')); await promise; assert.equal(h.state.collections[0], c); assert.equal(h.controller.status('collection', h.message()).pressed, false);
-    const retry = h.controller.toggle('collection', h.message()); assert.equal(h.controller.status('collection', h.message()).pressed, false); h.saves.at(-1).resolve({}); await retry;
+    const retry = h.controller.toggle('collection', h.message()); assert.equal(h.controller.status('collection', h.message()).pressed, true); h.saves.at(-1).resolve({}); await retry;
     assert.equal(h.state.collections.length, 1); assert.equal(h.state.collections[0], c); assert.equal(h.state.discussions[0].collectionId, c.id); if (rename) assert.equal(c.name, 'newer name'); assert.equal(h.controller.status('collection', h.message()).pressed, true);
   }
 });

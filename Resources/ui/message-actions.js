@@ -50,7 +50,9 @@
       var source = options.getState(), operation = operations.get(keyFor(kind, message)), busy = locks.get(lockFor(kind, message));
       var pressed = isSelected(source, kind, message);
       if (operation && current(operation) && operation.error) pressed = operation.previousPressed;
-      if (busy && current(busy)) pressed = kind === 'manual' ? busy.previousManualId === message.id : busy.previousPressed;
+      // Reflect the requested state immediately; saving remains true until the
+      // durable snapshot is confirmed. Failure still restores only this action.
+      if (busy && current(busy)) pressed = kind === 'manual' ? busy.target && busy.message.id === message.id : busy.target;
       return { pressed: pressed, saving: !!busy && current(busy), error: operation && current(operation) ? operation.error || '' : '' };
     }
     // Roll back only touched properties. In particular, an auto-reading update
@@ -117,7 +119,7 @@
       var operation = operations.get(key);
       if (!operation || !current(operation)) {
         var pressed = isSelected(source, kind, message);
-        operation = { source: source, generation: generation, kind: kind, message: message, target: !pressed, previousPressed: pressed, previousManualId: ((source.progress[message.groupId] || {}).manual || {}).messageId, created: null };
+        operation = { source: source, generation: generation, kind: kind, message: message, target: !pressed, previousPressed: pressed, created: null };
         operations.set(key, operation);
       }
       // A different manual destination supersedes a failed request in that group.

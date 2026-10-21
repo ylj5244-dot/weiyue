@@ -526,6 +526,120 @@ private func rejects(_ label: String, _ operation: () throws -> Void) throws {
                     try rejects("stale revision") { try store.save(state: fixture(), accountId: account) }
                 }
             }),
+            ("previously verified bytes never hide external corruption or a newer disk revision", {
+                try withStore { store in
+                    let original = fixture(), current = fixture(revision: 2, count: 2)
+                    try store.save(state: original, accountId: account)
+                    try store.save(state: current, accountId: account)
+                    let file = store.fileURL(accountId: account), backup = file.appendingPathExtension("backup")
+                    let damaged = Data("externally damaged main".utf8)
+                    try damaged.write(to: file)
+                    try Data("externally damaged backup".utf8).write(to: backup)
+                    try rejects("cached copies are no substitute for damaged disk files") { try store.save(state: fixture(revision: 3), accountId: account) }
+                    try expect(try Data(contentsOf: file) == damaged, "Cache overwrote damaged original")
+                    let future = fixture(revision: 20, count: 3)
+                    try bytes(future).write(to: backup)
+                    try rejects("external newer backup") { try store.save(state: fixture(revision: 3), accountId: account) }
+                    try expect(try Data(contentsOf: backup) == bytes(future), "Newer external backup lost")
+                    try store.save(state: fixture(revision: 21, count: 4), accountId: account)
+                    try expect(try Data(contentsOf: backup) == bytes(future), "Repair rotated corrupt main over good backup")
+                }
+            }),
+            ("idempotent saves compare content after decoding legacy whitespace and repair a corrupt backup", {
+                try withStore { store in
+                    let current = fixture()
+                    let file = store.fileURL(accountId: account), backup = file.appendingPathExtension("backup")
+                    let pretty = try JSONSerialization.data(withJSONObject: current, options: [.prettyPrinted, .sortedKeys])
+                    try pretty.write(to: file)
+                    try Data("bad backup".utf8).write(to: backup)
+                    try store.save(state: current, accountId: account)
+                    try expect(try Data(contentsOf: file) == pretty, "Idempotent save rewrote unchanged main")
+                    try expect(try Data(contentsOf: backup) == bytes(current), "Idempotent save did not establish a valid backup")
+                    var conflict = current; conflict["bookmarks"] = []
+                    try rejects("legacy same-revision collision") { try store.save(state: conflict, accountId: account) }
+                }
+            }),
+            ("mutable caller values and loaded state cannot change accepted snapshot identity", {
+                try withStore { store in
+                    let mutable = NSMutableDictionary(dictionary: ["value": "accepted"])
+                    var state = fixture(); state["extension"] = mutable
+                    try store.save(state: state, accountId: account)
+                    let file = store.fileURL(accountId: account), accepted = try Data(contentsOf: file)
+                    mutable["value"] = "later mutation"
+                    try rejects("mutated incoming snapshot with the same revision") { try store.save(state: state, accountId: account) }
+                    var loaded = try store.load(accountId: account).state
+                    loaded["bookmarks"] = []
+                    try rejects("mutated loaded snapshot with the same revision") { try store.save(state: loaded, accountId: account) }
+                    try expect(try Data(contentsOf: file) == accepted, "Caller mutation altered accepted bytes")
+                    for path in [file, file.appendingPathExtension("backup")] {
+                        let attributes = try FileManager.default.attributesOfItem(atPath: path.path)
+                        try expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600, "Saved file permissions changed")
+                    }
+                }
+            }),
+            ("explicit backup compaction retains the verified cleaned snapshot and normal saves keep prior revisions", {
+                try withStore { store in
+                    let original = fixture()
+                    try store.save(state: original, accountId: account)
+                    var cleaned = fixture(revision: 2); cleaned["messages"] = []
+                    try store.save(state: cleaned, accountId: account)
+                    let file = store.fileURL(accountId: account), backup = file.appendingPathExtension("backup")
+                    try expect(try Data(contentsOf: backup) == bytes(original), "Normal save discarded old backup before compaction")
+                    try store.compactBackup(state: cleaned, accountId: account)
+                    try expect(try Data(contentsOf: backup) == bytes(cleaned), "Compaction retained removed chat cache")
+                    try expect(try Data(contentsOf: file) == bytes(cleaned), "Compaction changed main")
+                    try Data("damaged after cleanup".utf8).write(to: file)
+                    let recovered = try StateStore(directory: store.directory).load(accountId: account)
+                    try expect(recovered.warning != nil, "Compacted backup did not recover")
+                    try expect(try bytes(recovered.state) == bytes(cleaned), "Recovery resurrected removed chat cache")
+                }
+            }),
+            ("backup compaction rejects unaccepted, stale and conflicting snapshots without changing either file", {
+                try withStore { store in
+                    let original = fixture(), current = fixture(revision: 2, count: 2)
+                    try rejects("no accepted snapshot") { try store.compactBackup(state: original, accountId: account) }
+                    try expect(!FileManager.default.fileExists(atPath: store.fileURL(accountId: account).path), "Compaction created an unsaved main")
+                    try store.save(state: original, accountId: account)
+                    try store.save(state: current, accountId: account)
+                    let file = store.fileURL(accountId: account), backup = file.appendingPathExtension("backup")
+                    let before = try Data(contentsOf: backup), main = try Data(contentsOf: file)
+                    var conflict = current; conflict["bookmarks"] = []
+                    for candidate in [original, conflict, fixture(revision: 3)] {
+                        try rejects("stale, conflicting or unsaved compaction") { try store.compactBackup(state: candidate, accountId: account) }
+                        try expect(try Data(contentsOf: backup) == before, "Rejected compaction rotated backup")
+                        try expect(try Data(contentsOf: file) == main, "Rejected compaction changed main")
+                    }
+                    try rejects("foreign account compaction") { try store.compactBackup(state: current, accountId: "other-account") }
+                    let unopened = try StateStore(directory: store.directory)
+                    try rejects("unaccepted on new store instance") { try unopened.compactBackup(state: current, accountId: account) }
+                    try expect(try Data(contentsOf: backup) == before, "Unaccepted compaction rotated backup")
+                }
+            }),
+            ("backup compaction rechecks the main and refuses to destroy a newer external backup", {
+                try withStore { store in
+                    let original = fixture(), current = fixture(revision: 2, count: 2)
+                    try store.save(state: original, accountId: account)
+                    try store.save(state: current, accountId: account)
+                    let file = store.fileURL(accountId: account), backup = file.appendingPathExtension("backup")
+                    for damaged in [Data("broken main".utf8), try bytes(original)] {
+                        try damaged.write(to: file)
+                        try rejects("corrupt or stale primary") { try store.compactBackup(state: current, accountId: account) }
+                        try expect(try Data(contentsOf: backup) == bytes(original), "Compaction discarded recovery despite invalid main")
+                    }
+                    var collision = current; collision["bookmarks"] = []
+                    try bytes(collision).write(to: file)
+                    try rejects("same revision changed primary") { try store.compactBackup(state: current, accountId: account) }
+                    try bytes(current).write(to: file)
+                    for future in [fixture(revision: 99), collision] {
+                        try bytes(future).write(to: backup)
+                        try rejects("newer or same-revision conflicting backup") { try store.compactBackup(state: current, accountId: account) }
+                        try expect(try Data(contentsOf: backup) == bytes(future), "Compaction destroyed conflicting external backup")
+                    }
+                    try Data("bad backup".utf8).write(to: backup)
+                    try store.compactBackup(state: current, accountId: account)
+                    try expect(try Data(contentsOf: backup) == bytes(current), "Verified main could not repair backup")
+                }
+            }),
             ("invalid entity IDs, accounts, snapshot relations, arrays and revisions are rejected atomically", {
                 let invalid: [(String, (inout [String: Any]) -> Void)] = [
                     ("numeric message id", { s in var a = s["messages"] as! [[String: Any]]; a[0]["id"] = 9007199254740992; s["messages"] = a }),
