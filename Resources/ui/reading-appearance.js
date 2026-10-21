@@ -13,7 +13,7 @@
   function consecutiveGap(value,readingDensity){
     // The 22px action lane and 2px body inset remain reserved at every level.
     // Follow preserves existing 1.0.8 density measurements and migrations.
-    return isLevel(value)?[0,0,1,2,10,22][value]:density(readingDensity).messageGap;
+    return isLevel(value)?[0,0,8,20,38,64][value]:density(readingDensity).messageGap;
   }
   function normalizePreferences(raw){
     const p=raw&&typeof raw==='object'?raw:{};
@@ -58,7 +58,7 @@
       dialog.querySelectorAll('[data-reading-density]').forEach(button=>{button.setAttribute('aria-pressed',String(Number(button.dataset.readingDensity)===p.density));});
       dialog.querySelectorAll('[data-consecutive-spacing]').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.consecutiveSpacing===String(p.consecutiveSpacing)));});
       const labels=['','紧凑','偏紧','标准','舒展','宽松'];
-      $('reading-spacing-status').textContent=p.consecutiveSpacing==='follow'?'当前跟随：'+labels[p.density]+'密度':'已独立设置：'+labels[p.consecutiveSpacing];
+      $('reading-spacing-status').textContent=p.consecutiveSpacing==='follow'?'当前跟随：'+labels[p.density]+'密度':'已独立设置：'+labels[p.consecutiveSpacing]+' · 额外间隔 '+consecutiveGap(p.consecutiveSpacing,p.density)+' px';
       const skin=$('reading-skin'),font=$('reading-font');skin.replaceChildren();
       const builtIns=document.createElement('optgroup');builtIns.label='内置皮肤';data.builtInSkins.forEach(item=>builtIns.append(new Option(item.name,item.id)));skin.append(builtIns);
       if(data.skins.length){const imported=document.createElement('optgroup');imported.label='已导入皮肤';data.skins.forEach(item=>imported.append(new Option(item.name,item.id)));skin.append(imported);}skin.value=p.skinId;

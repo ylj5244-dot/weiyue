@@ -1,6 +1,6 @@
-# 微阅 1.0.9：安装、迁移与源码构建
+# 微阅 1.0.10：安装、迁移与源码构建
 
-发行版本为 **1.0.9，构建号 15**。应用要求 **macOS 14 或更新版本**，同一份通用应用包含 **Apple Silicon（arm64）与 Intel（x86_64）** 两种原生架构。无需为了运行应用安装 Node.js、Xcode 或其他开发工具。Intel 架构已交叉编译并检查；若未在 Intel 真机运行过，不能据此宣称已经完成 Intel 真机验收。
+发行版本为 **1.0.10，构建号 16**。应用要求 **macOS 14 或更新版本**，同一份通用应用包含 **Apple Silicon（arm64）与 Intel（x86_64）** 两种原生架构。无需为了运行应用安装 Node.js、Xcode 或其他开发工具。Intel 架构已交叉编译并检查；若未在 Intel 真机运行过，不能据此宣称已经完成 Intel 真机验收。
 
 ## 安装或升级
 
@@ -8,10 +8,10 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `微阅-1.0.9-macOS-universal.dmg` | 推荐安装包，包含应用和「Applications」快捷入口 |
-| `微阅-1.0.9-macOS-universal.zip` | 同一应用的备用压缩包 |
-| `微阅-1.0.9-源码.zip` | 可独立构建的源码、资源、测试、打包脚本和文档 |
-| `微阅-1.0.9-安装说明.txt` | 无需开发工具即可阅读的中文说明 |
+| `微阅-1.0.10-macOS-universal.dmg` | 推荐安装包，包含应用和「Applications」快捷入口 |
+| `微阅-1.0.10-macOS-universal.zip` | 同一应用的备用压缩包 |
+| `微阅-1.0.10-源码.zip` | 可独立构建的源码、资源、测试、打包脚本和文档 |
+| `微阅-1.0.10-安装说明.txt` | 无需开发工具即可阅读的中文说明 |
 | `SHA256SUMS.txt` | 每份发行文件的 SHA-256 校验值 |
 
 1. 若正在使用旧版，先通过「退出微阅」或 Command+Q 退出，等待保存完成。
@@ -34,7 +34,7 @@ shasum -a 256 -c SHA256SUMS.txt
 只复制安装包或源码不会带上个人数据。若要迁移阅读位置、标记、收藏、AI 讨论、长期偏好与已经缓存的附件：
 
 1. 在两台 Mac 上退出微阅；若新 Mac 已有资料，先分别备份，避免覆盖。
-2. 旧 Mac 的访达中按 `Command + Shift + G`，输入 `~/Library/Application Support/WeiboReader/`。应用「设置 → 本地文件」也能打开这个目录。
+2. 旧 Mac 的访达中按 `Command + Shift + G`，输入 `~/Library/Application Support/WeiboReader/`。应用「设置 → 存储与自动清理 → 查看本地保存位置」也能打开这个目录。
 3. 把整个 `WeiboReader` 文件夹经可信方式复制到新 Mac 的 `~/Library/Application Support/` 下。不要只复制某一个账号 JSON，附件和备份文件也在同一资料目录内。本版本不支持自动合并两个已有资料库。
 4. 在新 Mac 安装微阅并重新登录原来的微博账号。资料按账号隔离，登录其他账号不会看到原账号记录。
 5. API Key 保存在旧 Mac 的钥匙串，**不在上述目录或源码包内**。在新 Mac 重新配置所用 AI 服务的 Key，以及已启用的联网搜索服务 Key。微博网页登录会话也需要重新登录。
@@ -52,7 +52,7 @@ shasum -a 256 -c SHA256SUMS.txt
 xcode-select --install
 ```
 
-安装 Node.js 后，解压源码 ZIP，在终端进入解压出的 `微阅-1.0.9-源码` 文件夹，检查工具：
+安装 Node.js 后，解压源码 ZIP，在终端进入解压出的 `微阅-1.0.10-源码` 文件夹，检查工具：
 
 ```sh
 xcrun swiftc --version
@@ -99,6 +99,7 @@ bash scripts/test-background-lifecycle-ui.sh
 bash scripts/test-discussion-title-native.sh
 bash scripts/test-discussion-titles-ui.sh
 bash scripts/test-reading-appearance-v109-ui.sh
+bash scripts/test-storage-preview-ui.sh
 ```
 
 测试与构建文件写入源码目录内的 `build/`；这与正式应用的 `~/Library/Application Support/WeiboReader/` 资料目录不同。
@@ -109,7 +110,7 @@ bash scripts/test-reading-appearance-v109-ui.sh
 bash scripts/package-release.sh
 ```
 
-脚本会重新构建通用应用，核对版本 **1.0.9 (15)**、两个架构和签名，随后生成 DMG、应用 ZIP、源码 ZIP、中文安装说明以及校验清单。产物在 `build/releases/`。已经生成通用构建时，可跳过重复编译：
+脚本会重新构建通用应用，核对版本 **1.0.10 (16)**、两个架构和签名，随后生成 DMG、应用 ZIP、源码 ZIP、中文安装说明以及校验清单。产物在 `build/releases/`。已经生成通用构建时，可跳过重复编译：
 
 ```sh
 bash scripts/package-release.sh --skip-build
@@ -126,15 +127,15 @@ bash scripts/package-release.sh --skip-build
 ```sh
 xcrun lipo -archs build/微阅.app/Contents/MacOS/WeiboReader
 codesign --verify --deep --strict build/微阅.app
-hdiutil verify build/releases/微阅-1.0.9-macOS-universal.dmg
-unzip -l build/releases/微阅-1.0.9-源码.zip
+hdiutil verify build/releases/微阅-1.0.10-macOS-universal.dmg
+unzip -l build/releases/微阅-1.0.10-源码.zip
 ```
 
 应用源码架构为 AppKit + WKWebView。源码包不包含 API Key；运行时每位使用者配置自己的账号与服务。修改代码后应重新运行对应测试，不能仅凭成功编译判断群聊、联网搜索或真实 AI 服务已验收。
 
 ## 阅读密度、皮肤与字体
 
-「设置 → 阅读与皮肤」提供五档正文密度、同一成员消息的独立五档间距和三套内置皮肤，继续支持微阅 JSON 皮肤与 TTF／OTF 字体导入。新功能见 [1.0.9 使用说明](reading-title-skins-v109.md)，导入格式见 [阅读与皮肤说明](reading-appearance-v108.md)。迁移整个 `WeiboReader` 数据目录时，其中的 `阅读与皮肤` 文件夹也需要一并复制。
+「设置 → 阅读与皮肤」提供五档正文密度、同一成员消息的独立五档间距和三套内置皮肤，继续支持微阅 JSON 皮肤与 TTF／OTF 字体导入。新功能见 [1.0.10 使用说明](storage-preview-v110.md)，导入格式见 [阅读与皮肤说明](reading-appearance-v108.md)。迁移整个 `WeiboReader` 数据目录时，其中的 `阅读与皮肤` 文件夹也需要一并复制。
 
 ## 关闭窗口与退出
 

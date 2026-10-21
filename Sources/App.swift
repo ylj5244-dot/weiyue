@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var lastMessages: [String: [String: Any]] = [:]
     var popupWindows: [NSWindow] = []
     var attachmentPreviews: [UUID: AttachmentPreviewController] = [:]
+    let contentPreview = ContentPreviewController()
+    var contentPreviewGeneration = 0
+    var retentionTimer: Timer?
     let ai = AIClient()
     var discussionTitles = DiscussionTitleCoordinator()
     let webSearch = WebSearchClient()
@@ -109,6 +112,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         officialView.isHidden = true
         officialView.allowsBackForwardNavigationGestures = true
         window.contentView!.addSubview(officialView)
+        window.contentView!.addSubview(contentPreview.view)
+        contentPreview.onChange = { [weak self] value in self?.event(value) }
+        retentionTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.retentionTick() }
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(retentionTick), name: NSWorkspace.didWakeNotification, object: nil)
         localIndex = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "ui")!
         localView.loadFileURL(localIndex, allowingReadAccessTo: localIndex.deletingLastPathComponent())
         officialView.load(URLRequest(url: URL(string: "https://api.weibo.com/chat")!))
@@ -116,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc func retentionTick() {
+        guard uiReady, !terminationRequested, !cleanupInProgress else { return }
+        event(["type": "retentionTick"])
+    }
     func applyAppearance(_ preference: String) {
         switch preference {
         case "light": window?.appearance = NSAppearance(named: .aqua)
@@ -125,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     func closeAttachmentPreviews() {
+        contentPreviewGeneration += 1; contentPreview.close()
         let previews = Array(attachmentPreviews.values)
         attachmentPreviews.removeAll()
         previews.forEach { $0.close() }
@@ -355,6 +367,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         officialView.evaluateJavaScript("window.__weiboReaderSync?.resume()", completionHandler: nil)
         pending.forEach(receiveWeibo)
         scheduleSyncConfiguration()
+    }
+    func automaticCleanupRequest(id: Any, payload: [String: Any]) throws {
+        try requireCurrentAccount(payload)
+        guard !terminationRequested, !cleanupInProgress, contentOperation == nil, attachmentPreviews.isEmpty,
+              aiBridgeOperation == nil || aiBridgeGeneration != aiGeneration,
+              rangeRequest == nil || rangeRequest?.cancelled == true,
+              let revision = payload["revision"] as? Int, currentState["revision"] as? Int == revision else {
+            throw ReaderError.message("资料正在使用，自动清理将稍后重试。")
+        }
+        let account = accountId, protected = payload["protectedMessages"] as? [[String: Any]] ?? []
+        _ = try RetentionPolicy.settings(currentState)
+        cleanupInProgress = true; discussionTitles.cancel()
+        syncConfigurationTask?.cancel(); syncConfigurationGeneration += 1; fileOperations.enter()
+        media.reset { [weak self] in
+            guard let self else { return }
+            self.officialView.evaluateJavaScript("window.__weiboReaderSync?.pause()") { [weak self] _, _ in
+                guard let self else { return }
+                self.storageQueue.async {
+                    let result = Result { try AutomaticCleanup.run(store: self.store, cleaner: self.cacheCleaner, accountId: account,
+                        revision: revision, protectedMessages: protected) }
+                    DispatchQueue.main.async {
+                        defer { self.fileOperations.leave(); self.finishCleanup() }
+                        guard self.accountId == account else { self.reply(id, error: "账号已切换，清理结果保存在原账号中。"); return }
+                        switch result {
+                        case .success(let value):
+                            if let state = value["state"] as? [String: Any] { self.currentState = state; self.lastMessages.removeAll() }
+                            self.reply(id, result: value)
+                        case .failure(let error): self.reply(id, error: error.localizedDescription)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    func previewContentRequest(id: Any, payload: [String: Any]) throws {
+        try requireCurrentAccount(payload)
+        let item = try attachment(payload), account = accountId
+        contentPreviewGeneration += 1; let generation = contentPreviewGeneration
+        contentPreview.close()
+        if item["type"] as? String == "link", let raw = item["url"] as? String {
+            try contentPreview.open(url: ContentPreviewPolicy.webURL(raw), name: item["name"] as? String ?? raw)
+            reply(id, result: contentPreview.snapshot); return
+        }
+        guard item["type"] as? String == "document" else { throw ReaderError.message("右侧预览支持链接和文档。") }
+        media.fetch(accountId: account, attachment: item, using: officialView) { [weak self] result in
+            guard let self else { return }
+            guard account == self.accountId, generation == self.contentPreviewGeneration, !self.terminationRequested else {
+                self.reply(id, error: "预览已关闭或切换。"); return
+            }
+            do {
+                let asset = try result.get()
+                try self.contentPreview.open(file: asset.file, name: asset.name, allowedDirectory: self.attachmentDirectory)
+                self.reply(id, result: self.contentPreview.snapshot)
+            } catch { self.reply(id, error: error.localizedDescription) }
+        }
     }
     func cleanupRequest(_ action: String, id: Any, payload: [String: Any]) throws {
         try requireCurrentAccount(payload)
@@ -752,10 +819,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
               let action = body["action"] as? String, let id = body["id"] else { return }
         let payload = body["payload"] as? [String: Any] ?? [:]
         do {
-            if terminationRequested && ["ai", "titleDiscussion", "extractAttachment", "importDocument", "testAI", "listModels", "authorizeAI", "cleanupPreview", "cleanupApply", "cleanupUndo", "loadRange"].contains(action) {
+            if terminationRequested && ["ai", "titleDiscussion", "extractAttachment", "importDocument", "testAI", "listModels", "authorizeAI", "cleanupPreview", "cleanupApply", "cleanupUndo", "autoCleanup", "previewContent", "loadRange"].contains(action) {
                 throw ReaderError.message("应用正在保存并退出，已停止发起新的读取和 AI 请求。")
             }
-            if cleanupInProgress && ["save", "ai", "titleDiscussion", "testAI", "extractAttachment", "importDocument", "prepareImported", "attachmentPreview", "openAttachment", "downloadAttachment", "revealAttachment", "loadHistory", "syncNow", "loadRange"].contains(action) {
+            if cleanupInProgress && ["save", "ai", "titleDiscussion", "testAI", "extractAttachment", "importDocument", "prepareImported", "attachmentPreview", "openAttachment", "downloadAttachment", "revealAttachment", "previewContent", "loadHistory", "syncNow", "loadRange"].contains(action) {
                 throw ReaderError.message("本地清理正在完成，请稍后继续操作。")
             }
             switch action {
@@ -800,6 +867,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                         }
                     }
                 }
+            case "autoCleanup":
+                try automaticCleanupRequest(id: id, payload: payload)
+            case "previewContent":
+                try previewContentRequest(id: id, payload: payload)
+            case "closeContentPreview":
+                contentPreviewGeneration += 1; contentPreview.close(); reply(id)
+            case "contentPreviewAction":
+                try contentPreview.navigate(payload["operation"] as? String ?? ""); reply(id, result: contentPreview.snapshot)
+            case "previewLayout":
+                if let x = payload["x"] as? Double, let y = payload["y"] as? Double,
+                   let width = payload["width"] as? Double, let height = payload["height"] as? Double,
+                   [x, y, width, height].allSatisfy({ $0.isFinite }) {
+                    let rect = NSRect(x: x, y: localView.bounds.height - y - height, width: max(0, width), height: max(0, height)).intersection(localView.bounds)
+                    contentPreview.layout(rect, visible: payload["visible"] as? Bool == true)
+                }
+                reply(id)
             case "cleanupPreview", "cleanupApply", "cleanupUndo", "cleanupStatus":
                 try cleanupRequest(action, id: id, payload: payload)
             case "loadRange", "cancelRange":
@@ -954,6 +1037,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             case "aiCapabilities":
                 try requireCurrentAccount(payload)
                 reply(id, result: try aiCapabilities(payload))
+            case "storageUsage":
+                fileOperations.enter()
+                storageQueue.async { [weak self] in
+                    guard let self else { return }
+                    let result = Result { try StorageUsage.scan(directory: self.dataDirectory) }
+                    DispatchQueue.main.async {
+                        defer { self.fileOperations.leave() }
+                        switch result {
+                        case .success(let value): self.reply(id, result: value)
+                        case .failure(let error): self.reply(id, error: error.localizedDescription)
+                        }
+                    }
+                }
             case "storageLocations":
                 reply(id,result:["dataPath":dataDirectory.path,"attachmentsPath":attachmentDirectory.path])
             case "revealStorage":

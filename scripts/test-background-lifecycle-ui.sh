@@ -14,7 +14,7 @@ PY
 xcrun swiftc -parse-as-library -module-cache-path build/module-cache \
   Sources/Store.swift Sources/AIClient.swift Sources/DiscussionTitles.swift Sources/WebSearchClient.swift Sources/MediaPolicy.swift Sources/MediaStore.swift \
   Sources/WorkspacePolicy.swift Sources/ReadingAppearance.swift Sources/ContentExtractor.swift Sources/DirectInput.swift \
-  Sources/CacheCleaner.swift Sources/AttachmentPreview.swift build/AppDelegateLifecycleFixture.swift tests/BackgroundLifecycleUIHarness.swift \
+  Sources/CacheCleaner.swift Sources/StorageUsage.swift Sources/RetentionPolicy.swift Sources/AutomaticCleanup.swift Sources/ContentPreview.swift Sources/AttachmentPreview.swift build/AppDelegateLifecycleFixture.swift tests/BackgroundLifecycleUIHarness.swift \
   -framework CoreText -framework AppKit -framework WebKit -framework Security -framework Quartz -framework Vision -framework PDFKit -framework AVKit -framework AVFoundation \
   -o build/background-lifecycle-ui-tests
 build/background-lifecycle-ui-tests

@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="reading-appearance.css">
   <link rel="stylesheet" href="reader-controls-v108.css">
   <link rel="stylesheet" href="discussion-titles.css">
+  <link rel="stylesheet" href="storage-preview.css">
+  <link rel="stylesheet" href="reader-discovery.css">
   <script src="appearance.js"></script>
   <script src="preferences.js" defer></script>
   <script src="web-search.js" defer></script>
@@ -23,8 +25,11 @@
   <script src="range-summary.js" defer></script>
   <script src="range-summary-runner.js" defer></script>
   <script src="layout.js" defer></script>
+  <script src="reader-discovery.js" defer></script>
   <script src="reader-performance.js" defer></script>
   <script src="cleanup.js" defer></script>
+  <script src="storage-management.js" defer></script>
+  <script src="content-preview.js" defer></script>
   <script src="preferences-ui.js" defer></script>
   <script src="range-summary-ui.js" defer></script>
   <script src="speaker-groups.js" defer></script>
@@ -84,6 +89,7 @@
           <div class="sidebar-section-title library-label">工作台</div>
           <nav class="library-nav" aria-label="资料库">
             <button id="nav-chats" class="nav-row active"><svg><use href="#i-chat"/></svg><span>群聊</span><span id="group-count" class="count">0</span></button>
+            <button id="nav-followed" class="nav-row"><span class="followed-nav-star" aria-hidden="true">★</span><span>关注发言</span><span id="followed-count" class="count">0</span></button>
             <button id="nav-bookmarks" class="nav-row"><svg><use href="#i-bookmark"/></svg><span>书签</span><span id="bookmark-count" class="count">0</span></button>
             <button id="nav-collections" class="nav-row"><svg><use href="#i-folder"/></svg><span>资料库</span><span id="collection-count" class="count">0</span></button>
           </nav>
@@ -110,7 +116,7 @@
         <section id="chat-view" class="chat-view">
           <header class="content-header">
             <div class="heading-group"><span id="group-icon" class="group-emblem"><svg><use href="#i-chat"/></svg></span><div><h1 id="group-name">微博群聊</h1><p id="group-description">连接账号，留住值得细读的讨论</p></div></div>
-            <div class="reader-mode-actions"><button id="enter-standby" class="standby-button" type="button" title="取消当前阅读群，所有已开启同步的群继续累计未读"><span class="standby-cap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0"/></svg></span><span id="standby-label">进入待机</span></button><div class="view-switch" role="group" aria-label="阅读方式"><button id="mode-official" class="selected">官方聊天</button><button id="mode-reader">专注阅读</button></div></div>
+            <div id="followed-heading-actions" class="followed-heading-actions" hidden><button id="manage-followed-feed" class="secondary-button" type="button">管理关注</button></div><div class="reader-mode-actions"><button id="enter-standby" class="standby-button" type="button" title="取消当前阅读群，所有已开启同步的群继续累计未读"><span class="standby-cap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0"/></svg></span><span id="standby-label">进入待机</span></button><div class="view-switch" role="group" aria-label="阅读方式"><button id="mode-official" class="selected">官方聊天</button><button id="mode-reader">专注阅读</button></div></div>
           </header>
           <div id="coverage-bar" class="coverage-bar"><span class="coverage-dot"></span><span id="coverage-text">本地尚未保存消息 · 勾选群聊后自动同步</span><button id="coverage-action" class="text-button">查看最新</button></div>
           <div id="official-area" class="official-area">
@@ -121,12 +127,13 @@
           </div>
           <div id="reader-area" class="reader-area" hidden>
             <div class="reader-tools">
-              <label class="search-field message-search"><svg><use href="#i-search"/></svg><input id="message-search" type="search" placeholder="搜索本地消息" autocomplete="off" aria-label="搜索本地消息"></label>
+              <label class="search-field message-search"><svg><use href="#i-search"/></svg><input id="message-search" type="search" placeholder="搜索消息、链接或文件名" autocomplete="off" aria-label="搜索消息、链接或文件名"></label>
               <button id="member-filter-button" class="filter-button">全部成员 <span class="down-chevron">⌄</span></button>
               <button id="date-filter-button" class="filter-button" title="按时间筛选"><svg><use href="#i-clock"/></svg><span>时间</span></button>
               <button id="open-range-summary" class="filter-button range-summary-button" title="指定日期和时间，加载并总结这段时间的全部群聊消息"><svg><use href="#i-spark"/></svg><span>时段总结</span></button>
               <label class="font-size-control" title="调整阅读字号"><span aria-hidden="true">Aa</span><select id="font-button" aria-label="阅读字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option></select></label>
             </div>
+            <div class="message-type-bar"><div id="message-type-filters" class="message-type-filters" role="group" aria-label="按消息类型筛选"><button type="button" data-message-type="all" aria-pressed="true">全部</button><button type="button" data-message-type="link" aria-pressed="false">链接</button><button type="button" data-message-type="image" aria-pressed="false">图片</button><button type="button" data-message-type="document" aria-pressed="false">文件</button><button type="button" data-message-type="video" aria-pressed="false">视频</button></div><label id="followed-scope-label" class="followed-scope-label" hidden><span class="sr-only">关注发言的群聊范围</span><select id="followed-scope" aria-label="关注发言的群聊范围"><option value="">所有群聊</option></select></label></div>
             <div id="member-popover" class="member-popover" hidden><label class="search-field"><svg><use href="#i-search"/></svg><input id="member-search" type="search" placeholder="搜索成员姓名或 ID" autocomplete="off" aria-label="搜索成员姓名或 ID"></label><div id="member-list"></div></div>
             <div id="date-filter" class="date-filter" hidden><label>从 <input id="date-from" type="date" aria-label="起始日期"></label><label>至 <input id="date-to" type="date" aria-label="结束日期"></label><button id="clear-dates" class="text-button">清除</button></div>
             <div id="reader-summary" class="reader-summary"><div class="reader-result-line"><span id="result-count">0 条本地消息</span><button id="clear-filters" class="text-button" hidden>清除筛选</button></div><div class="reader-status-row"><div class="reading-position-controls" aria-label="阅读位置"><button id="manual-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">回到手动续读点</span><span class="reading-position-time">尚未设置</span></button><button id="return-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">返回跳转前</span><span class="reading-position-time">尚未跳转</span></button></div><div id="sync-bar" class="sync-bar"><span class="sync-dot"></span><span id="sync-status">等待同步当前群聊</span><span id="sync-time"></span><div class="sync-actions"><button id="sync-now" class="text-button">立即同步</button><button id="load-history" class="text-button">加载更早 500 条</button></div></div></div></div>
@@ -155,6 +162,11 @@
       <div id="inspector-divider" class="pane-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整 AI 侧栏宽度" aria-controls="main inspector" title="拖动调整 AI 侧栏宽度；双击恢复默认；方向键微调"></div>
 
       <aside id="inspector" class="inspector">
+        <section id="content-preview-panel" class="content-preview-panel" hidden aria-label="资料预览">
+          <header class="content-preview-heading"><strong id="content-preview-title">资料预览</strong><div><button id="content-preview-external" class="text-button" title="用 Mac 默认浏览器打开">用默认浏览器打开 ↗</button><button id="content-preview-close" class="icon-button" title="关闭预览，返回讨论" aria-label="关闭预览，返回讨论"><svg><use href="#i-close"/></svg></button></div></header>
+          <div class="content-preview-navigation"><button id="content-preview-back" class="icon-button" aria-label="后退">←</button><button id="content-preview-forward" class="icon-button" aria-label="前进">→</button><button id="content-preview-reload" class="icon-button" aria-label="刷新预览"><svg><use href="#i-refresh"/></svg></button><span id="content-preview-address"></span></div>
+          <p id="content-preview-status" role="status" hidden></p><div id="content-preview-host" class="content-preview-host"></div>
+        </section>
         <header class="inspector-header"><div><span class="spark-tile"><svg><use href="#i-spark"/></svg></span><h2>一起读懂</h2></div><div class="inspector-heading-actions"><label class="font-size-control" title="调整一起读懂字号，自动保存"><span aria-hidden="true">Aa</span><select id="ai-font-size" aria-label="一起读懂字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="22">22</option></select></label><button id="new-discussion" class="icon-button small" title="新建讨论" aria-label="新建讨论"><svg><use href="#i-plus"/></svg></button></div></header>
         <div class="context-section">
           <details id="context-disclosure" class="context-disclosure">
@@ -250,12 +262,27 @@
       <label class="form-label">API Key <span id="key-status" class="key-status">尚未设置</span><input id="api-key" type="password" placeholder="输入 Key" autocomplete="new-password" spellcheck="false"><span>Key 按当前微博账号与 API 地址独立存入 macOS 钥匙串。页面不会读取已保存的 Key，留空仅查找此地址已有的 Key。</span></label>
       <div class="settings-tools"><button id="list-models" type="button" class="secondary-button">刷新可用模型</button><button id="test-ai" type="button" class="secondary-button">测试连接</button><button id="authorize-ai" type="button" class="secondary-button">授权已保存的 Key</button></div><p class="settings-test-note">测试连接只发送固定文字「只回复 OK」。首次使用已保存的 Key，请点击授权，按 macOS 钥匙串提示确认；无需重新输入密钥。</p><p id="settings-feedback" class="settings-feedback" hidden></p>
       <p id="settings-error" class="form-error" hidden></p>
-      <section class="storage-section" aria-labelledby="storage-title"><div class="storage-heading"><h3 id="storage-title">本地文件</h3><button id="refresh-storage" type="button" class="text-button">刷新路径</button></div><p class="settings-test-note">完整路径可直接选择或复制，也可以一键在访达中打开。</p>
+      <section class="settings-shortcuts"><h3>本机资料</h3><button id="open-storage-management" type="button" class="storage-entry"><span><strong>存储与自动清理</strong><small>查看空间占用，管理缓存与保留天数</small></span><svg><use href="#i-chevron"/></svg></button></section></div><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="settings-dialog">取消</button><button id="save-settings" type="submit" class="primary-button">保存设置</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="storage-dialog" class="settings-dialog storage-dialog" aria-labelledby="storage-title">
+    <div class="dialog-header"><div><h2 id="storage-title">存储与自动清理</h2><p>管理这台 Mac 上的微阅资料。</p></div><button type="button" class="icon-button" data-close-dialog="storage-dialog" aria-label="关闭存储管理"><svg><use href="#i-close"/></svg></button></div>
+    <div class="settings-dialog-body">
+      <section class="storage-overview"><div><span>本机资料占用</span><strong id="storage-total">正在统计…</strong><small id="storage-measured">包含所有账号的资料、附件和恢复副本</small></div><button id="refresh-storage" type="button" class="secondary-button">刷新</button></section>
+      <div id="storage-categories" class="storage-categories" aria-live="polite"></div>
+      <div class="storage-clean-row"><span id="storage-message-count"></span><button id="open-cleanup" type="button" class="secondary-button">清理本地缓存…</button></div>
+      <section class="retention-settings"><label class="retention-switch"><span><strong>定时自动清理</strong><small>自动整理当前账号的过期记录和缓存</small></span><input id="auto-cleanup-enabled" type="checkbox" role="switch"></label>
+        <label class="retention-days" for="auto-cleanup-days">保留最近<select id="auto-cleanup-days"><option value="1">1 天</option><option value="2">2 天</option><option value="3">3 天</option><option value="4">4 天</option></select>的聊天记录</label>
+        <p class="small-note">开启后立即检查，此后每小时检查一次；应用退出时暂停，下次启动或唤醒后补查。书签、收藏、讨论引用、阅读位置和手动导入的资料保留。</p>
+        <p class="small-note">过期记录及其未被引用的缓存将直接删除，不进废纸篓，也不生成撤销副本。微博上的原消息不受影响。</p>
+        <div class="retention-save"><span id="auto-cleanup-status" role="status"></span><button id="save-auto-cleanup" type="button" class="primary-button">保存清理设置</button></div>
+      </section>
+      <details class="storage-paths"><summary>查看本地保存位置</summary>
         <div class="storage-location"><label for="data-path">聊天记录、书签与收藏</label><textarea id="data-path" rows="2" readonly spellcheck="false" aria-label="本地资料完整路径">正在读取路径…</textarea><div class="storage-actions"><button id="copy-data-path" type="button" class="text-button" disabled>复制路径</button><button id="reveal-data-folder" type="button" class="secondary-button" disabled>在访达中打开</button></div></div>
         <div class="storage-location"><label for="attachments-path">图片与文档缓存</label><textarea id="attachments-path" rows="2" readonly spellcheck="false" aria-label="附件缓存完整路径">正在读取路径…</textarea><div class="storage-actions"><button id="copy-attachments-path" type="button" class="text-button" disabled>复制路径</button><button id="reveal-attachments-folder" type="button" class="secondary-button" disabled>在访达中打开</button></div></div>
-        <div class="storage-actions"><button id="open-cleanup" type="button" class="secondary-button">分类清理本地缓存…</button></div><p id="storage-error" class="form-error" hidden></p>
-      </section></div><div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="settings-dialog">取消</button><button id="save-settings" type="submit" class="primary-button">保存设置</button></div>
-    </form>
+      </details><p id="storage-error" class="form-error" role="alert" hidden></p>
+    </div><div class="dialog-footer"><button id="storage-back" type="button" class="secondary-button">返回设置</button><button type="button" class="primary-button" data-close-dialog="storage-dialog">完成</button></div>
   </dialog>
 
   <dialog id="reading-appearance-dialog" class="settings-dialog reading-appearance-dialog" aria-labelledby="reading-appearance-title">

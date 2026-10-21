@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require.resolve('../Resources/ui/app.js'),'utf8');
 const section=source.slice(source.indexOf('  function cleanupOptions()'),source.indexOf("  $('open-cleanup').addEventListener"));
 function fixture(rpc=async()=>({})) {
-  const elements={'cleanup-undo':{disabled:true}};const context=vm.createContext({cleanupBusy:false,cleanupHasUndoReceipt:false,cleanupStatusRequest:0,cleanupPlan:{},cleanupEvents:[],accountEpoch:1,state:{accountId:'sample'},$:id=>elements[id]||(elements[id]={disabled:true}),rpc});
+  const elements={'cleanup-undo':{disabled:true}};const context=vm.createContext({cleanupBusy:false,cleanupHasUndoReceipt:false,cleanupStatusRequest:0,cleanupPlan:{},cleanupEvents:[],accountEpoch:1,state:{accountId:'sample'},document:{querySelector:()=>({inert:false})},refreshMountedCards(){elements.messageDisabled=context.cleanupBusy;},renderAIControls(){elements.aiDisabled=context.cleanupBusy;},$:id=>elements[id]||(elements[id]={disabled:true}),rpc});
   vm.runInContext(section,context);return {context,elements,run:code=>vm.runInContext(code,context)};
 }
 test('preview unlock cannot enable undo when no cleanup receipt exists',async()=>{
@@ -24,4 +24,10 @@ test('pending, failed and outdated receipt checks cannot leave undo enabled',asy
   assert.equal(f.elements['cleanup-undo'].disabled,true,'an older reply cannot resurrect a consumed receipt');
   f.context.rpc=async()=>{throw new Error('disk unavailable');};await f.run('cleanupStatus()');
   assert.equal(f.elements['cleanup-undo'].disabled,true,'failed checks do not enable undo');
+});
+
+test('cleanup completion refreshes message and AI controls after rendering the cleaned state',()=>{
+  const f=fixture();f.run('lockCleanup(true)');
+  assert.equal(f.elements.messageDisabled,true);assert.equal(f.elements.aiDisabled,true);
+  f.run('lockCleanup(false)');assert.equal(f.elements.messageDisabled,false);assert.equal(f.elements.aiDisabled,false);
 });

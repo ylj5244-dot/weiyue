@@ -1,9 +1,10 @@
 (function (root, factory) {
   'use strict';
-  const api = factory();
+  const discovery=typeof module==='object'&&module.exports?require('./reader-discovery.js'):root.ReaderDiscovery;
+  const api = factory(discovery);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.ReaderPerformance = api;
-})(typeof window !== 'undefined' ? window : globalThis, function () {
+})(typeof window !== 'undefined' ? window : globalThis, function (discovery) {
   'use strict';
 
   // Prefix sums with logarithmic updates let images change a row's height
@@ -44,22 +45,25 @@
     constructor(messages) {
       this.source = messages; this.count = messages.length; this.groups = new Map(); this.byKey = new Map();
       this.all = messages.slice().sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt));
-      this.stamps = new WeakMap();
+      this.stamps = new WeakMap(); this.searchText = new WeakMap(); this.types = new WeakMap();
       for (const message of this.all) {
         if (!this.groups.has(message.groupId)) this.groups.set(message.groupId, []);
         this.groups.get(message.groupId).push(message); this.byKey.set(message.groupId + ':' + message.id, message);
         this.stamps.set(message, Date.parse(message.sentAt));
+        this.searchText.set(message,discovery.queryText(message));this.types.set(message,discovery.kinds(message));
       }
     }
     forGroup(groupId) { return this.groups.get(groupId) || []; }
     find(groupId, id) { return this.byKey.get(groupId + ':' + id); }
     search(filters = {}) {
       const messages = filters.groupId ? this.forGroup(filters.groupId) : this.all;
-      const query = String(filters.query || '').toLocaleLowerCase();
+      const query = String(filters.query || '').toLocaleLowerCase(),type=filters.type||'all';
+      if(!discovery.types.includes(type))throw new Error('搜索类型无效');
+      const senders=Array.isArray(filters.senderIds)?new Set(filters.senderIds):null;
       const from = filters.from ? Date.parse(filters.from) : -Infinity, to = filters.to ? Date.parse(filters.to) : Infinity;
       if (Number.isNaN(from) || Number.isNaN(to) || from > to) throw new Error('搜索时间范围无效');
-      if (!query && !filters.senderId && from === -Infinity && to === Infinity) return messages;
-      return messages.filter(message => (!filters.senderId || message.senderId === filters.senderId) && (!query || message.text.toLocaleLowerCase().includes(query)) && this.stamps.get(message) >= from && this.stamps.get(message) <= to);
+      if (!query && !filters.senderId && !senders && !filters.accountId && type==='all' && from === -Infinity && to === Infinity) return messages;
+      return messages.filter(message => (!filters.accountId || message.accountId===filters.accountId) && (!senders || senders.has(message.senderId)) && (!filters.senderId || message.senderId === filters.senderId) && (type==='all'||this.types.get(message).includes(type)) && (!query || this.searchText.get(message).includes(query)) && this.stamps.get(message) >= from && this.stamps.get(message) <= to);
     }
   }
 

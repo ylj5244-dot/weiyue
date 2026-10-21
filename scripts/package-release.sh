@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
-VERSION="1.0.9"
-BUILD="15"
+VERSION="1.0.10"
+BUILD="16"
 SKIP_BUILD=0
 EXTRA_SOURCES=()
 while [ "$#" -gt 0 ]; do
@@ -13,7 +13,7 @@ while [ "$#" -gt 0 ]; do
       if [ "$#" -lt 2 ]; then printf '%s\n' '--extra-source 后须提供仓库内相对路径。' >&2; exit 1; fi
       EXTRA_SOURCES+=("$2"); shift 2 ;;
     --help|-h)
-      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.9 (15) 双架构构建。' '产物：build/releases/ 中的 DMG、应用 ZIP、源码 ZIP、安装说明和 SHA256SUMS.txt。'; exit 0 ;;
+      printf '%s\n' '用法：bash scripts/package-release.sh [--skip-build] [--extra-source 路径]' '默认重新构建双架构应用；--skip-build 只接受已签名的 1.0.10 (16) 双架构构建。' '产物：build/releases/ 中的 DMG、应用 ZIP、源码 ZIP、安装说明和 SHA256SUMS.txt。'; exit 0 ;;
     *) printf '未知参数：%s\n' "$1" >&2; exit 1 ;;
   esac
 done
@@ -82,6 +82,11 @@ for (const file of extras) {
   if (!fs.existsSync(path.join(root, file))) throw new Error(`额外源码不存在：${file}`);
   candidates.push(file);
 }
+const v110Sources = ["Sources/StorageUsage.swift", "Sources/RetentionPolicy.swift", "Sources/AutomaticCleanup.swift", "Sources/ContentPreview.swift", "Resources/ui/storage-management.js", "Resources/ui/content-preview.js", "Resources/ui/storage-preview.css", "Resources/ui/reader-discovery.js", "Resources/ui/reader-discovery.css", "tests/StorageUsageTests.swift", "tests/RetentionPolicyTests.swift", "tests/AutomaticCleanupTests.swift", "tests/ContentPreviewTests.swift", "tests/StoragePreviewUIHarness.swift", "tests/storage-management.test.cjs", "tests/storage-rpc.test.cjs", "tests/reader-discovery.test.cjs", "scripts/test-storage-preview-ui.sh", "docs/storage-preview-v110.md", "docs/verification-v110.md"];
+for (const file of v110Sources) {
+  if (!fs.existsSync(path.join(root, file))) throw new Error(`源码包缺少 1.0.10 文件：${file}`);
+  candidates.push(file);
+}
 const rootFiles = new Set(['README.md', 'LICENSE', '.gitignore', 'design-qa.md']);
 function allowed(file) {
   if (rootFiles.has(file) || file === 'Resources/ui/skin-example.weiyue-skin.json') return true;
@@ -126,18 +131,19 @@ console.log(`已导出 ${files.length} 份源码/文档；不含 Git、构建产
 NODE
 
 cat > "$WORK/产物/$STEM-安装说明.txt" <<'NOTE'
-微阅 1.0.9（构建 15）安装说明
+微阅 1.0.10（构建 16）安装说明
 
 适用：macOS 14 或更新版本，Apple Silicon 与 Intel Mac。
 
-1.0.9 更新：
-- 右侧「历史」显示 AI 概括的主题；旧记录打开历史后逐条补题，新讨论及追问完成后自动拟题，可暂停、继续与重试。
-- 「设置 → 阅读与皮肤」新增同一成员消息间距，可跟随正文阅读密度或独立选择五档。
-- 内置「微阅原生」「纸页 · 青绿」「Claude Code 风格」三套皮肤，均支持日间、夜间；切换皮肤保留字体。
-- 青绿和 Claude Code 皮肤在专注模式逐条交替背景色，同一成员的连续消息也能区分。
-- 延续关闭窗口后后台运行、Dock 恢复、停止、复制、字体导入等功能。
+1.0.10 更新：
+- 「设置 → 存储与自动清理」显示本地资料分类占用，支持手动清理及默认关闭的定时自动清理；保留最近 1–4 天，保护书签、收藏和讨论引用。
+- 搜索可按链接、图片、文件、视频筛选，并可查找附件名称；左侧新增「关注发言」专属视图。
+- 关注成员标记更醒目；专注阅读中自己的发言靠右，连续消息独立五档间距明显拉开。
+- 链接和文档改为紧凑标题行，点击后在右侧浏览网页或预览文档，支持用默认浏览器或应用打开。
+- 图片按原比例居中；大记录量下书签与续读点立即反馈，后台保存速度提升。
+- 保留 AI 历史拟题、三套日夜皮肤、关闭窗口后台运行及现有阅读功能。
 
-1. 打开「微阅-1.0.9-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
+1. 打开「微阅-1.0.10-macOS-universal.dmg」，把「微阅」拖入旁边的「Applications / 应用程序」。
 2. 如果正在使用旧版，先通过菜单「退出微阅」或 Command+Q 退出，再替换应用；不要删除本地资料目录。
    旧版若在个人 ~/Applications/ 目录，请拖到原位置替换，避免保留两份而误开旧版。
 3. 从「应用程序」打开微阅。更新同一台 Mac 的应用通常保留原资料和钥匙串中的 Key。

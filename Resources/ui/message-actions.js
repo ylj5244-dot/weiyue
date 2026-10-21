@@ -148,7 +148,7 @@
         return { failed: true };
       }
     }
-    return { toggle: toggle, status: status, reset: function () { generation++; operations.clear(); locks.clear(); } };
+    return { toggle: toggle, status: status, hasPending: function () { return Array.from(locks.values()).some(current); }, reset: function () { generation++; operations.clear(); locks.clear(); } };
   }
   function copyText(message) {
     var parts = [], text = typeof message.text === 'string' ? message.text : '';

@@ -35,3 +35,10 @@ xcrun swiftc -module-cache-path build/module-cache Sources/Store.swift Sources/R
 build/reading-appearance-tests
 
 bash scripts/test-discussion-title-native.sh
+
+xcrun swiftc -module-cache-path build/module-cache Sources/Store.swift Sources/StorageUsage.swift tests/StorageUsageTests.swift -o build/storage-usage-tests
+build/storage-usage-tests
+xcrun swiftc -module-cache-path build/module-cache Sources/Store.swift Sources/MediaPolicy.swift Sources/RetentionPolicy.swift tests/RetentionPolicyTests.swift -o build/retention-tests
+build/retention-tests
+xcrun swiftc -module-cache-path build/module-cache Sources/Store.swift Sources/MediaPolicy.swift Sources/WorkspacePolicy.swift Sources/CacheCleaner.swift Sources/RetentionPolicy.swift Sources/AutomaticCleanup.swift tests/AutomaticCleanupTests.swift -o build/automatic-cleanup-tests
+build/automatic-cleanup-tests

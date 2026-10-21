@@ -21,7 +21,7 @@ function fixture() {
   const box = { $: get, state: { accountId: 'synthetic-A', settings: {} }, ready: true, loadFailed: false,
     document: { documentElement: { style: { setProperty: (name, value) => properties.set(name, value) } } },
     mutate: fn => { calls.mutations++; fn(); }, persistQuietly: () => { calls.saves++; },
-    visibleMessage: () => ({ messageId: 'message-7', offset: 19 }), settleReading: () => { calls.settles++; },
+    visibleMessage: () => ({ groupId: 'group-2', messageId: 'message-7', offset: 19 }), settleReading: () => { calls.settles++; },
     scrollToMessage: (...value) => calls.anchors.push(value), notify: () => {} };
   vm.createContext(box); vm.runInContext(bindings, box); box.applyAIFontSize();
   const change = (id, size) => { const node = get(id); node.value = String(size); node.listeners.change(); };
@@ -34,7 +34,7 @@ test('reader dropdown selects its own three sizes and preserves the visible read
     f.change('font-button', size);
     assert.equal(f.properties.get('--reader-size'), size + 'px');
     assert.equal(f.properties.get('--ai-reader-size'), '14px');
-    assert.deepEqual(f.calls.anchors.at(-1), ['message-7', 19, false]);
+    assert.deepEqual(f.calls.anchors.at(-1), ['message-7', 19, false, 'group-2']);
   }
   assert.equal(f.calls.settles, 3);
   assert.equal(f.calls.saves, 0, 'reader control retains the existing session-only behavior');

@@ -19,7 +19,10 @@
       suppressedTextKeys:Array.isArray(value.suppressedTextKeys) ? value.suppressedTextKeys : [],
       suppressedAssetKeys:Array.isArray(value.suppressedAssetKeys) ? value.suppressedAssetKeys : [],
       detachedAssets:Array.isArray(value.detachedAssets) ? value.detachedAssets : [],
-      ...(value.lastCleanedAt ? {lastCleanedAt:value.lastCleanedAt} : {})};
+      ...(value.lastCleanedAt ? {lastCleanedAt:value.lastCleanedAt} : {}),
+      ...(value.autoCutoffAt ? {autoCutoffAt:value.autoCutoffAt} : {}),
+      ...(value.lastAutoCleanedAt ? {lastAutoCleanedAt:value.lastAutoCleanedAt} : {}),
+      autoPendingAssets:Array.isArray(value.autoPendingAssets) ? value.autoPendingAssets : []};
   }
   function assetKey(ref) {
     if (typeof ref.localPath === 'string' && ref.localPath) return 'local:' + ref.localPath;
@@ -100,7 +103,8 @@
   }
   function filterIncoming(state, incoming) {
     const cleanup=cleanupFor(state), removed=new Set(cleanup.suppressedMessageKeys), clearedText=new Set(cleanup.suppressedTextKeys), suppressed=new Set(cleanup.suppressedAssetKeys);
-    return incoming.filter(message=>!removed.has(key(message))).map(message=>stripExtractions(clearedText.has(key(message)) ? {...message,text:'',locallyClearedText:true} : message,suppressed));
+    const cutoff=Date.parse(cleanup.autoCutoffAt), retained=new Set((state.messages||[]).map(key));
+    return incoming.filter(message=>!removed.has(key(message)) && (!Number.isFinite(cutoff) || retained.has(key(message)) || message.localPath || message.groupId==='local-files' || !Number.isFinite(Date.parse(message.sentAt)) || Date.parse(message.sentAt)>=cutoff)).map(message=>stripExtractions(clearedText.has(key(message)) ? {...message,text:'',locallyClearedText:true} : message,suppressed));
   }
   function isMediaSuppressed(state, attachment, message) {
     const ref = message && message.localPath ? {localPath:message.localPath} : attachment;
@@ -128,7 +132,7 @@
       });
       if (byIndex.size) current.extractedContents=Array.from(byIndex.values());
     });
-    next.cleanup=clone(cleanupFor(before));next.revision=state.revision+1;return next;
+    next.cleanup={...clone(cleanupFor(before)),...Object.fromEntries(Object.entries(cleanupFor(state)).filter(([name])=>['autoCutoffAt','autoPendingAssets','lastAutoCleanedAt'].includes(name)))};next.revision=state.revision+1;return next;
   }
   return {preview,apply,filterIncoming,isMediaSuppressed,restoreMedia,undo,assetKey};
 });

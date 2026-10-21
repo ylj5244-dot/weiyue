@@ -34,8 +34,8 @@ struct CacheCleanupRestore {
     let warnings: [String]
 }
 
-// A cleanup never unlinks the user's data. Files go to the system Trash and a
-// private account-scoped snapshot permits the app to undo message cleanup.
+// Manual cleanup uses the system Trash and an account-scoped undo snapshot.
+// Opt-in retention only removes verified remote cache files after state commits.
 // Call on the app's serial file queue, with downloads paused during mutations.
 final class CacheCleaner {
     typealias TrashOperation = (URL) throws -> URL
@@ -130,6 +130,36 @@ final class CacheCleaner {
             items[original.path] = CacheCleanupItem(original: original, kind: kind, bytes: size)
         }
         return CacheCleanupPlan(accountId: accountId, items: items.values.sorted { $0.original.path < $1.original.path }, refs: refs)
+    }
+
+    func removeExpiredRemote(accountId: String, refs: [[String: Any]]) -> (bytes: Int64, pending: [[String: Any]], warnings: [String]) {
+        var bytes: Int64 = 0, pending: [[String: Any]] = [], warnings: [String] = []
+        var seen = Set<String>()
+        for ref in refs {
+            do {
+                guard ref["localPath"] == nil, let raw = ref["url"] as? String else { throw ReaderError.message("自动清理仅处理远程附件缓存。") }
+                let url = try MediaPolicy.remoteURL(raw)
+                guard seen.insert(url.absoluteString).inserted else { continue }
+                guard ["image", "document"].contains(ref["kind"] as? String ?? "") else { throw ReaderError.message("自动清理附件类型无效。") }
+                // The hash binds this directory to the current account + remote
+                // URL. Incomplete downloads can lack a manifest; remove their
+                // residual bytes too, while rejecting links anywhere below it.
+                let safe = try child(directory.appendingPathComponent(MediaPolicy.cacheKey(accountId: accountId, url: url.absoluteString), isDirectory: true), of: directory)
+                guard fm.fileExists(atPath: safe.path) else { continue }
+                try rejectSymlinks(in: safe)
+                var allocated: Int64 = 0
+                guard let entries = fm.enumerator(at: safe, includingPropertiesForKeys: [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]) else {
+                    throw ReaderError.message("缓存目录暂时无法读取，稍后重试。")
+                }
+                for case let file as URL in entries {
+                    let info = try file.resourceValues(forKeys: [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey])
+                    if info.isRegularFile == true { allocated += Int64(info.totalFileAllocatedSize ?? info.fileSize ?? 0) }
+                }
+                try fm.removeItem(at: safe)
+                bytes += allocated
+            } catch { pending.append(ref); warnings.append(error.localizedDescription) }
+        }
+        return (bytes, pending, warnings)
     }
 
     private func rejectSymlinks(in folder: URL) throws {

@@ -114,8 +114,8 @@ for(const level of [1,2,3,4,5]){
   measures.push(rect(c.querySelector('.message-body')).top-rect(card('1').querySelector('.message-body')).bottom);
   assert(inside(rail,c)&&rect(rail).bottom<=rect(body).top+1,'action lane does not obscure text');
 }
-assert(measures.every((gap,i)=>Math.abs(gap-[24,25,26,34,46][i])<1),'five actual text gaps '+measures);
-await click('[data-reading-density="1"]');assert((await saved()).preferences.consecutiveSpacing===5&&style(card('2')).paddingBottom==='22px','density preserves independent spacing');
+assert(measures.every((gap,i)=>Math.abs(gap-[24,32,44,62,88][i])<1),'five actual text gaps '+measures);
+await click('[data-reading-density="1"]');assert((await saved()).preferences.consecutiveSpacing===5&&style(card('2')).paddingBottom==='64px','density preserves independent spacing');
 await click('[data-consecutive-spacing="follow"]');assert(style(card('2')).paddingBottom==='0px'&&$('reading-spacing-status').textContent.includes('紧凑'),'follow restored immediately');
 await click('[data-reading-density="5"]');assert(style(card('2')).paddingBottom==='9px'&&$('reading-spacing-status').textContent.includes('宽松'),'follow responds to density');
 await select('reading-font','family:Arial');

@@ -16,13 +16,14 @@ const ReaderViewPolicy = (function () {
     if (leavesStandby) state.settings.readerStandby = false;
     state.revision++; return true;
   }
-  function chooseAnchor({ state, groupId, messages, visible, remembered, restore = false, filtered = false }) {
+  function chooseAnchor({ state, groupId, messages, visible, remembered, restore = false, filtered = false, acrossGroups = false }) {
     const saved = (state.progress[groupId] || {}).auto;
     const candidates = filtered ? [visible] : restore ? [remembered, saved] : [visible, remembered, saved];
     for (const candidate of candidates) {
-      if (!candidate || candidate.accountId !== state.accountId || candidate.groupId !== groupId) continue;
-      if (!messages.some(message => message.groupId === groupId && message.id === candidate.messageId)) continue;
-      const anchor = { accountId: state.accountId, groupId, messageId: candidate.messageId, offset: Math.max(0, Number(candidate.offset) || 0) };
+      if (!candidate || candidate.accountId !== state.accountId || (!acrossGroups && candidate.groupId !== groupId)) continue;
+      const sourceGroup = acrossGroups ? candidate.groupId : groupId;
+      if (!messages.some(message => message.groupId === sourceGroup && message.id === candidate.messageId)) continue;
+      const anchor = { accountId: state.accountId, groupId: sourceGroup, messageId: candidate.messageId, offset: Math.max(0, Number(candidate.offset) || 0) };
       if (Number.isFinite(candidate.visualOffset)) anchor.visualOffset = candidate.visualOffset;
       return anchor;
     }
@@ -82,6 +83,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   let state = M.createState();
   let ready = false, loadFailed = false, demo = false, hasAPIKey = false, accountName = '';
   let activeGroupId = '', activeView = 'chats', mode = 'official', deletedBookmarks = false;
+  let messageType='all', followedGroupId='';
   let memberId = '', selected = new Set(), context = [], contextCollectionId = null, currentDiscussionId = null;
   let bookmarkTarget = null, bookmarkNoteSaving = false, pendingCollection = null, collectionEditing = false, pendingCollectionKeys = [], busyAI = false, aiToken = 0;
   let queuedEvents = [], pendingRPC = new Map(), rpcSequence = 0, saveTail = Promise.resolve();
@@ -134,6 +136,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if(modelCapabilities.key!==capabilityKey() || modelCapabilities.status==='loading')throw new Error('正在确认模型能力，请稍后重试。');
     return {baseURL:state.settings.baseURL || '',model:state.settings.model || '',readMode:state.settings.readMode || 'auto',thinking:thinkingOption().mode,allowImages:!!state.settings.allowImages,allowPDF:!!state.settings.allowPDF};
   }
+  let previewMessage = null, previewOpen = false, previewSequence = 0;
+  let autoCleanupAttempt = 0, autoCleanupRetry = false;
   let renderedFiltered = false, renderedGroupId = '';
   let deferredMessages = [];
   const selectedCollectionIds = new Set();
@@ -158,7 +162,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   const syncDirtyGroups = new Set(), saveQueue = new P.CoalescedQueue();
   const readerList = new P.VirtualList({
     scroll: $('reader-scroll'), content: $('messages'), keyFor: message => message.accountId + ':' + M.messageKey(message),
-    cacheTokenFor: (_, index) => renderedSpeakers[index].tone + ':' + renderedSpeakers[index].position + ':' + renderedSpeakers[index].messageTone,
+    cacheTokenFor: (_, index) => activeView + ':' + renderedSpeakers[index].tone + ':' + renderedSpeakers[index].position + ':' + renderedSpeakers[index].messageTone,
     createRow: (message, index) => {
       const previous = renderedMessages[index - 1], date = dayDate(message.sentAt), children = [];
       if (!previous || dayDate(previous.sentAt) !== date) children.push(node('div', 'date-separator', date));
@@ -183,7 +187,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (syncRenderTimer) return;
     syncRenderTimer = setTimeout(() => {
       syncRenderTimer = 0; renderSidebar(); renderHeader();
-      if (mode === 'reader' && activeView === 'chats' && (syncDirtyGroups.has(activeGroupId) || state.settings.readerStandby === true)) renderReader();
+      if (mode === 'reader' && (activeView === 'followed' || (activeView === 'chats' && (syncDirtyGroups.has(activeGroupId) || state.settings.readerStandby === true)))) renderReader();
       syncDirtyGroups.clear();
     }, 120);
   }
@@ -268,7 +272,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (!native) return Promise.reject(new Error('此操作需要在微阅 Mac 应用中使用。'));
     return new Promise((resolve, reject) => {
       const id = 'ui-' + Date.now() + '-' + (++rpcSequence);
-      const timeout = setTimeout(async () => {
+      // A native cleanup may have committed already: keep the UI locked until its final reply.
+      const timeout = action === 'autoCleanup' ? null : setTimeout(async () => {
         pendingRPC.delete(id);
         if(action==='titleDiscussion') {
           // A title may use the provider's full response deadline. Release the
@@ -281,7 +286,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
         if (['ai','testAI'].includes(action)) rpc('cancelAI').catch(() => {});
         if(action==='loadRange')rpc('cancelRange',{accountId:payload.accountId,requestId:payload.requestId}).catch(()=>{});
         reject(new Error(action === 'ai' ? '模型响应超时，已停止请求并保留提问与已收到的内容。' : '操作等待超时，请重试。'));
-      }, ['ai','testAI','loadRange','titleDiscussion'].includes(action) ? 650000 : action === 'listModels' ? 190000 : ['downloadAttachment', 'openAttachment', 'revealAttachment', 'export', 'extractAttachment', 'importDocument','prepareImported','cleanupApply','cleanupUndo','cleanupPreview','loadHistory','syncNow'].includes(action) ? 180000 : action === 'attachmentPreview' ? 90000 : 25000);
+      }, ['ai','testAI','loadRange','titleDiscussion'].includes(action) ? 650000 : action === 'listModels' ? 190000 : ['downloadAttachment', 'openAttachment', 'previewContent', 'revealAttachment', 'export', 'extractAttachment', 'importDocument','prepareImported','cleanupApply','cleanupUndo','cleanupPreview','loadHistory','syncNow'].includes(action) ? 180000 : action === 'attachmentPreview' ? 90000 : 25000);
       pendingRPC.set(id, { resolve, reject, timeout });
       try { window.webkit.messageHandlers.app.postMessage({ id, action, payload }); }
       catch (error) { clearTimeout(timeout); pendingRPC.delete(id); reject(error); }
@@ -294,6 +299,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     else task.reject(new Error(typeof response.error === 'string' ? response.error : '操作未完成，请重试。'));
   };
   window.onNativeEvent = function (event) {
+    if (event && event.type === 'contentPreview') { if (previewOpen) updateContentPreview(event); return; }
+    if (event && event.type === 'retentionTick') { if (ready) runAutomaticCleanup(); return; }
     if (event && event.type === 'aiProgress') { if (!inlineTranslation || !inlineTranslation.consumeProgress(event)) receiveAIProgress(event); return; }
     if (event && event.type === 'rangeProgress') { receiveRangeProgress(event); return; }
     if (cleanupBusy) { cleanupEvents.push(event); return; }
@@ -336,7 +343,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     M.setProgress(state, { groupId: anchor.groupId, messageId: anchor.messageId, offset: anchor.offset, kind: 'auto' });
     return true;
   }
-  function isFiltered() { return !!(memberId || $('message-search').value || $('date-from').value || $('date-to').value); }
+  function isFiltered() { return !!(activeView==='followed' || messageType!=='all' || memberId || $('message-search').value || $('date-from').value || $('date-to').value); }
   function rememberVisibleAnchor() {
     const anchor = visibleMessage();
     if (anchor && anchor.accountId === state.accountId && !renderedFiltered) viewportAnchors.set(anchor.groupId, anchor);
@@ -388,6 +395,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   };
   function mutate(callback) { callback(); state.revision++; }
   function replaceAccount(raw, keyStatus, name) {
+    closeContentPreview(false); autoCleanupAttempt=0;autoCleanupRetry=false;messageType='all';followedGroupId='';
     if (discussionTitles) discussionTitles.reset();
     cancelRangeSummary('账号切换已停止时段总结。').catch(() => {});
     if (rangeUI) rangeUI.close();
@@ -462,15 +470,19 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       const r = $('official-host').getBoundingClientRect();
       const visible = activeView === 'chats' && mode === 'official' && !document.querySelector('dialog[open]') && !demo;
       rpc('layout', { x: r.x, y: r.y, width: r.width, height: r.height, visible }).catch(() => {});
+      const p=$('content-preview-host').getBoundingClientRect();
+      rpc('previewLayout',{x:p.x,y:p.y,width:p.width,height:p.height,visible:previewOpen&&!document.querySelector('dialog[open]')&&p.width>40&&p.height>40&&$('inspector').getBoundingClientRect().width>40}).catch(()=>{});
     });
   }
   function renderAll(options = {}) { applyAIFontSize(); renderSidebar(); renderHeader(); renderViews(); renderReader(options); renderBookmarks(); renderCollections(); renderContext(); renderConversation(); renderAIControls(); scheduleLayout(); }
   function renderSidebar() {
     if (window.ReaderLayout) ReaderLayout.setData({ bookmarks: state.bookmarks, groups: state.groups, activeGroupId });
     text('group-count', String(state.groups.length));
+    const followedIds=ReaderDiscovery.followedIds(state);
+    text('followed-count',String(archive().search({accountId:state.accountId,senderIds:followedIds}).length));
     text('bookmark-count', String(state.bookmarks.filter(b => !b.deletedAt).length));
     text('collection-count', String(state.collections.filter(collection => !collection.deletedAt).length));
-    ['chats', 'bookmarks', 'collections'].forEach(view => $('nav-' + view).classList.toggle('active', activeView === view));
+    ['chats', 'followed', 'bookmarks', 'collections'].forEach(view => $('nav-' + view).classList.toggle('active', activeView === view));
     const query = $('group-search').value.trim().toLocaleLowerCase();
     const groups = state.groups.filter(g => g.name.toLocaleLowerCase().includes(query) || g.id.includes(query));
     const list = groups.map(group => {
@@ -497,14 +509,16 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     $('account-name').closest('.account').classList.toggle('connected', !!state.accountId);
   }
   function renderHeader() {
-    const group = currentGroup(), standby = state.settings.readerStandby === true && !activeGroupId;
-    text('group-name', standby ? '待机中' : group ? group.name : '微博群聊');
-    text('group-description', standby ? '所有已开启同步的群继续收取消息、累计未读提醒' : group ? (group.selected ? '已开启本地保存 · 自动同步' : '在「管理」中开启群聊同步与本地保存') : '连接账号，留住值得细读的讨论');
+    const group = currentGroup(), following=activeView==='followed', standby = !following && state.settings.readerStandby === true && !activeGroupId;
+    text('group-name', following ? '关注发言' : standby ? '待机中' : group ? group.name : '微博群聊');
+    text('group-description', following ? '汇总已关注成员在各群的发言，按时间阅读与筛选' : standby ? '所有已开启同步的群继续收取消息、累计未读提醒' : group ? (group.selected ? '已开启本地保存 · 自动同步' : '在「管理」中开启群聊同步与本地保存') : '连接账号，留住值得细读的讨论');
     $('enter-standby').disabled = !state.accountId || standby;
     text('standby-label', standby ? '已待机' : '进入待机');
     $('mode-official').disabled = standby;
     $('reader-area').classList.toggle('is-standby', standby);
-    $('coverage-bar').hidden = standby;
+    $('coverage-bar').hidden = standby || following;
+    $('chat-view').classList.toggle('followed-feed',following);show('followed-heading-actions',following);show('followed-scope-label',following);
+    if(following){const all=node('option','','所有群聊');all.value='';$('followed-scope').replaceChildren(all,...state.groups.map(item=>{const option=node('option','',item.name);option.value=item.id;return option;}));if(!state.groups.some(item=>item.id===followedGroupId))followedGroupId='';$('followed-scope').value=followedGroupId;}
     const messages = archive().forGroup(activeGroupId);
     let coverage = '本地尚未保存消息 · 在「管理」中开启同步';
     if (messages.length) coverage = '本地 ' + messages.length + ' 条 · ' + fullDate(messages[0].sentAt) + ' 至 ' + fullDate(messages[messages.length - 1].sentAt) + ' · 非完整历史';
@@ -537,12 +551,20 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     catch (error) { if (epoch === accountEpoch) { syncStates.set(groupId, { ...prior, state: 'error', phase: isHistory ? 'history' : 'live', text: errorText(error) }); renderSyncStatus(); } }
   }
   function renderViews() {
-    show('chat-view', activeView === 'chats'); show('bookmarks-view', activeView === 'bookmarks'); show('collections-view', activeView === 'collections');
+    show('chat-view', activeView === 'chats' || activeView === 'followed'); show('bookmarks-view', activeView === 'bookmarks'); show('collections-view', activeView === 'collections');
     show('official-area', mode === 'official'); show('reader-area', mode === 'reader');
     if (native) show('official-placeholder', false);
     scheduleLayout();
   }
-  function setView(view) { ++readingNavigationEpoch; settleReading(); activeView = view; show('member-popover', false); renderSidebar(); renderViews(); if (view === 'chats' && mode === 'reader') renderReader({ restore: true }); if (view === 'bookmarks') renderBookmarks(); if (view === 'collections') renderCollections(); }
+  function setView(view) {
+    ++readingNavigationEpoch;settleReading();const previous=activeView;activeView=view;
+    if(previous==='followed'&&view!=='followed'){messageType='all';memberId='';$('message-search').value='';$('date-from').value='';$('date-to').value='';}
+    if(view==='followed'){mode='reader';messageType='all';memberId='';$('message-search').value='';$('date-from').value='';$('date-to').value='';selected.clear();}
+    show('member-popover',false);renderSidebar();renderHeader();renderViews();
+    if((view==='chats'&&mode==='reader')||view==='followed')renderReader(view==='followed'?{reset:true}:{restore:true});
+    if(previous==='followed'&&view!=='followed')readerList.needsMeasure=true;
+    if(view==='bookmarks')renderBookmarks();if(view==='collections')renderCollections();
+  }
   function setGroup(id) {
     if (!state.groups.some(group => group.id === id)) return false;
     ++readingNavigationEpoch; focusedSource = null;
@@ -553,7 +575,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       if (archive().find(id, parked.messageId)) viewportAnchors.set(id, parked);
       mutate(() => delete state.progress[id].standbyView);
     }
-    memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = '';
+    messageType='all'; memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = '';
     if (U.acknowledge(state, id, archive().forGroup(id))) persistQuietly();
     show('member-popover', false); activeView = 'chats'; renderSidebar(); renderHeader(); renderViews(); renderReader({ restore: true }); saveViewPreferences(); if (mode === 'reader') captureSessionStart(); if(rangeUI)rangeUI.render();
     return true;
@@ -567,7 +589,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     }
     mutate(() => { state.settings.readerStandby = true; state.settings.mode = 'reader'; });
     activeGroupId = ''; mode = 'reader'; activeView = 'chats'; focusedSource = null;
-    memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; selected.clear();
+    messageType='all'; memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; selected.clear();
     show('member-popover', false); show('date-filter', false);
     renderSidebar(); renderHeader(); renderViews(); renderReader({reset:true}); if(rangeUI)rangeUI.render(); persistQuietly();
     notify('已进入待机：所有已同步群继续累计新消息，阅读位置保留。');
@@ -578,10 +600,11 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     saveViewPreferences(); if (value === 'reader') { renderReader({ restore: true }); captureSessionStart(); }
     if (value === 'official' && native && options.navigate !== false) rpc('openOfficial', activeGroupId ? { groupId: activeGroupId } : {}).catch(handleError);
   }
-  function resetFilters() { settleReading(); memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; renderReader({ restore: true }); }
+  function resetFilters() { settleReading(); if(activeView==='followed'){followedGroupId='';$('followed-scope').value='';} messageType='all'; memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; renderReader({ restore: true }); }
   function filterChanged() { settleReading(); renderReader(isFiltered() ? { reset: true } : { restore: true }); }
   function searchOptions() {
-    const options = { groupId: activeGroupId };
+    const options = { groupId:activeView==='followed'?followedGroupId:activeGroupId,type:messageType,accountId:state.accountId };
+    if(activeView==='followed')options.senderIds=ReaderDiscovery.followedIds(state);
     if (memberId) options.senderId = memberId;
     if ($('message-search').value.trim()) options.query = $('message-search').value.trim();
     if ($('date-from').value) options.from = new Date($('date-from').value + 'T00:00:00').toISOString();
@@ -589,15 +612,16 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     return options;
   }
   function renderReader(options = {}) {
-    const scroll = $('reader-scroll'), oldScroll = scroll.scrollTop, previousAnchor = ReaderViewPolicy.captureRenderAnchor(options, rememberVisibleAnchor);
+    const scroll = $('reader-scroll'), oldScroll = scroll.scrollTop, previousAnchor = options.anchor || ReaderViewPolicy.captureRenderAnchor(options, rememberVisibleAnchor);
     suppressScrollUntil = Date.now() + 200;
     const group = currentGroup(), filter = isFiltered();
     let messages = [];
-    if (group) { try { messages = archive().search(searchOptions()); } catch (error) { banner(errorText(error)); } }
+    if (group || activeView==='followed') { try { messages = archive().search(searchOptions()); } catch (error) { banner(errorText(error)); } }
     if (!filter && focusedSource && focusedSource.accountId === state.accountId && focusedSource.groupId === activeGroupId && !messages.some(message=>message.id===focusedSource.id)) messages = [...messages,focusedSource].sort((a,b)=>Date.parse(a.sentAt)-Date.parse(b.sentAt)||a.id.localeCompare(b.id));
     messages = messages.filter(message => !window.ReaderPersonalization.isSystemNotice(message));
-    const member = memberId && M.findMembers(state, activeGroupId, '').find(m => m.id === memberId);
-    $('member-filter-button').replaceChildren(node('span', '', member ? shortText(member.name, 8) : '全部成员'), node('span', 'down-chevron', '⌄'));
+    const member = memberId && (activeView==='followed'?ReaderPersonalization.read(state).map(item=>({id:item.senderId,name:item.name||item.senderId})):M.findMembers(state, activeGroupId, '')).find(m=>m.id===memberId);
+    document.querySelectorAll('[data-message-type]').forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.messageType===messageType)));
+    $('member-filter-button').replaceChildren(node('span', '', member ? shortText(member.name, 8) : activeView==='followed'?'已关注成员':'全部成员'), node('span', 'down-chevron', '⌄'));
     $('member-filter-button').classList.toggle('active', !!memberId);
     $('date-filter-button').classList.toggle('active', !!($('date-from').value || $('date-to').value));
     text('result-count', messages.length + (filter ? ' 条匹配消息' : focusedSource ? ' 条消息 · 含总结来源快照' : ' 条本地消息'));
@@ -606,7 +630,11 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     const children = [];
     if (!messages.length) {
       const empty = node('div', 'reader-empty'); const emblem = node('span', 'empty-icon'); emblem.append(icon(filter ? 'search' : 'book')); empty.append(emblem);
-      if (state.settings.readerStandby === true && !activeGroupId) {
+      if (activeView==='followed') {
+        const count=ReaderDiscovery.followedIds(state).length;empty.append(node('h2','',count?'没有符合条件的关注发言':'先关注你想持续阅读的人'));
+        empty.append(node('p','',count?'可切换群聊、消息类型、成员或时间。这里汇总已经保存在本机的发言。':'按成员 ID 关注后，对方在不同群聊的发言都会汇总在这里。'));
+        empty.append(button(count?'清除筛选':'管理关注','secondary-button',count?resetFilters:()=>followedUI.open()));
+      } else if (state.settings.readerStandby === true && !activeGroupId) {
         const selectedGroups = state.groups.filter(item => item.selected), total = selectedGroups.reduce((sum,item) => sum + U.count(state,item.id),0);
         empty.classList.add('standby-empty'); empty.append(node('h2', '', '暂时离开，也不会漏掉提醒'));
         empty.append(node('p', '', selectedGroups.length + ' 个群保持同步 · 共 ' + total + ' 条未读新消息\n点击左侧任一群，清除该群提醒并回到原阅读位置。'));
@@ -620,7 +648,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       }
       children.push(empty);
     }
-    let anchor = ReaderViewPolicy.chooseAnchor({ state, groupId: activeGroupId, messages, visible: previousAnchor, remembered: viewportAnchors.get(activeGroupId), restore: !!options.restore, filtered: filter });
+    let anchor = ReaderViewPolicy.chooseAnchor({ state, groupId: activeGroupId, messages, visible: previousAnchor, remembered: viewportAnchors.get(activeGroupId), restore: !!options.restore, filtered: filter, acrossGroups: activeView==='followed' });
     if (!anchor && !filter && messages.length) {
       const saved = viewportAnchors.get(activeGroupId) || (state.progress[activeGroupId] || {}).auto;
       const original = saved && archive().find(activeGroupId, saved.messageId);
@@ -688,6 +716,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   function messageCard(message) {
     const key = M.messageKey(message), snapshotOnly = !archive().find(message.groupId,message.id);
     const card = node('article', 'message-card' + (context.some(item => M.messageKey(item) === key) ? ' in-ai-context' : '') + (selected.has(key) ? ' selected' : '') + (memberId ? ' filtered-member' : ''));
+    card.classList.toggle('is-own-message',ReaderDiscovery.isOwn(state,message));
+    card.classList.toggle('reader-followed',window.ReaderPersonalization.isFollowed(state,message));
     card.dataset.messageId = message.id; card.dataset.messageKey = key; card.dataset.groupId = message.groupId; card.dataset.accountId = message.accountId;
     const check = document.createElement('input'); check.type = 'checkbox'; check.className = 'message-select'; check.checked = selected.has(key);
     check.disabled = snapshotOnly;
@@ -698,14 +728,16 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     const time = node('time', 'message-time', clockDate(message.sentAt)); time.dateTime = message.sentAt; time.title = fullDate(message.sentAt);
     const followBadge = node('span', 'reader-followed-badge', '★ 重点关注'); followBadge.hidden = !window.ReaderPersonalization.isFollowed(state, message);
     heading.append(name, followBadge, node('span', 'message-user-id', 'ID ' + message.senderId), time);
+    if(ReaderDiscovery.isOwn(state,message))heading.append(node('span','own-message-label','我'));
     const markers = node('div', 'message-reading-markers'); markers.hidden = true;
     const bookmarkMarker = node('span', 'bookmark-indicator'); bookmarkMarker.hidden = true;
     bookmarkMarker.append(icon('bookmark'), node('span', '', '已加书签'));
     const manualMarker = node('span', 'manual-resume-indicator'); manualMarker.hidden = true;
     manualMarker.append(icon('book'), node('span', '', '手动续读点'));
     markers.append(bookmarkMarker, manualMarker);
-    const bodyRow = node('div', 'message-body-row'); bodyRow.append(check, node('p', 'message-body', message.text || '［非文本消息］'));
+    const bodyRow = node('div', 'message-body-row'); bodyRow.classList.toggle('attachment-title-only', !snapshotOnly && ReaderContentPreview.redundantBody(message)); bodyRow.append(check, node('p', 'message-body', message.text || '［非文本消息］'));
     content.append(heading, markers, bodyRow, node('div', 'message-inline-translation'));
+    if(activeView==='followed'){const group=state.groups.find(item=>item.id===message.groupId),source=node('div','followed-message-source');source.append(node('span','',group?group.name:message.groupId),button('回到群聊','text-button',()=>jumpTo(message.groupId,message.id),'chevron'));content.append(source);}
     if (snapshotOnly) content.append(node('p','context-warning','时段总结保存的原消息快照 · 未重新加入本地消息缓存，阅读位置保持不变。'));
     if (snapshotOnly && message.attachments && message.attachments.length) content.append(node('p','context-warning',message.attachments.map(item=>(item.name || '附件')+'（仅有附件信息，正文未读取）').join('\n')));
     if (!snapshotOnly && message.attachments && message.attachments.length) {
@@ -741,7 +773,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     } catch (error) { if (epoch === accountEpoch) { if (status) status.textContent = errorText(error); else handleError(error); } }
   }
   function attachmentCard(message, attachment, index) {
-    const presentation = ReaderViewPolicy.attachmentPresentation(attachment), reference = ReaderViewPolicy.attachmentReference(message, index);
+    const presentation = ReaderViewPolicy.attachmentPresentation({...attachment,name:ReaderContentPreview.title(attachment,message)}), reference = ReaderViewPolicy.attachmentReference(message, index);
     const card = node('div', 'attachment-card ' + (presentation.kind === 'image' ? 'image-attachment' : 'file-attachment'));
     const supportsAI = ['image', 'document'].includes(presentation.kind), epoch = accountEpoch;
     card.classList.toggle('attachment-floating-card', supportsAI); card.dataset.attachmentIndex = String(index);
@@ -749,7 +781,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     const feedback = node('div', 'attachment-feedback'); feedback.append(status);
     const controls = node('div', 'attachment-controls');
     const current = () => epoch === accountEpoch && message.accountId === state.accountId && card.isConnected;
-    const open = () => { if (current()) attachmentAction('openAttachment', reference, status); };
+    const open = () => { if (current()) { if (['link','document'].includes(presentation.kind)) openContentPreview(message,index,presentation.name); else attachmentAction('openAttachment',reference,status); } };
     if (supportsAI) { controls.classList.add('attachment-floating-actions'); controls.setAttribute('role', 'toolbar'); controls.setAttribute('aria-label', presentation.name + '的操作'); card.append(controls); }
     if (presentation.kind === 'image') {
       const frame = node('div', 'image-frame'), placeholder = node('span', 'image-placeholder', native ? '图片加载中…' : '在 Mac 应用中预览图片');
@@ -789,7 +821,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       const file = button('', 'attachment-open', open); file.setAttribute('aria-label', '打开' + presentation.name); file.title = '点击预览'; file.append(symbol, detail); card.append(file);
       if (!supportsAI) { controls.append(button('打开', 'text-button', open)); card.append(controls); }
     }
-    const official = () => { if (!current()) return; setMode('official', { navigate: false }); if (native) rpc('openOfficial', reference).catch(handleError); };
+    const official = () => { if (!current()) return; if((activeView!=='chats'||activeGroupId!==message.groupId)&&!setGroup(message.groupId))return; setMode('official', { navigate: false }); if (native) rpc('openOfficial', reference).catch(handleError); };
     if (supportsAI) {
       let lastIntent = 'interpret';
       const retryTask = button('重试', 'text-button attachment-task-retry', () => perform(lastIntent)); retryTask.hidden = true; feedback.append(retryTask);
@@ -837,7 +869,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   }
   function renderSelection() { show('selection-bar', selected.size > 0); text('selected-count', '已选 ' + selected.size + ' 条'); }
   function renderMembers() {
-    const members = activeGroupId ? M.findMembers(state, activeGroupId, $('member-search').value.trim()).filter(member => !window.ReaderPersonalization.isSystemNotice({senderId: member.id, senderName: member.name})) : [];
+    const query=$('member-search').value.trim().toLocaleLowerCase();
+    const members = activeView==='followed'?ReaderPersonalization.read(state).map(item=>({id:item.senderId,name:item.name||item.senderId,count:archive().search({accountId:state.accountId,groupId:followedGroupId,senderId:item.senderId}).length})).filter(item=>!query||item.id.toLocaleLowerCase().includes(query)||item.name.toLocaleLowerCase().includes(query)):activeGroupId ? M.findMembers(state, activeGroupId, query).filter(member => !window.ReaderPersonalization.isSystemNotice({senderId: member.id, senderName: member.name})) : [];
     const all = button('全部成员', 'member-option' + (!memberId ? ' active' : ''), () => { memberId = ''; show('member-popover', false); filterChanged(); });
     const children = [all];
     members.forEach(member => {
@@ -849,9 +882,9 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     replace('member-list', children);
   }
   function visibleMessage() {
-    if (mode !== 'reader' || activeView !== 'chats') return null;
+    if (mode !== 'reader' || !['chats','followed'].includes(activeView)) return null;
     const anchor = readerList.visibleAnchor();
-    if(anchor && !archive().find(activeGroupId,anchor.messageId))return null;
+    if(anchor && (anchor.accountId!==state.accountId || !archive().find(anchor.groupId,anchor.messageId)))return null;
     return anchor ? { accountId: anchor.accountId, groupId: anchor.groupId, messageId: anchor.messageId, offset: anchor.offset, visualOffset: anchor.visualOffset } : null;
   }
   function captureSessionStart() {
@@ -878,8 +911,8 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       control.setAttribute('aria-label', label + '，' + (anchor ? '消息时间 ' + (full || '未知') : empty));
     });
   }
-  function scrollToMessage(id, offset = 0, highlight = true) {
-    const key = state.accountId + ':' + activeGroupId + ':' + id;
+  function scrollToMessage(id, offset = 0, highlight = true, groupId = activeGroupId) {
+    const key = state.accountId + ':' + groupId + ':' + id;
     suppressScrollUntil = Date.now() + 350;
     if (!readerList.scrollTo(key, offset)) return false;
     const card = readerList.card(key);
@@ -910,7 +943,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (!original) { banner('原消息尚未载入本机，无法定位。已保存的完整快照仍可在标记或收藏中查看。请在官方页面加载对应历史。'); return; }
     ++readingNavigationEpoch; focusedSource = archive().find(groupId,messageId) ? null : original;
     if (activeView === 'chats' && mode === 'reader') saveReturnPoint();
-    activeGroupId = groupId; activeView = 'chats'; mode = 'reader'; memberId = '';
+    activeGroupId = groupId; activeView = 'chats'; mode = 'reader'; messageType='all'; memberId = '';
     if (state.settings.readerStandby === true) mutate(() => state.settings.readerStandby = false);
     if ((state.progress[groupId] || {}).standbyView) mutate(() => delete state.progress[groupId].standbyView);
     $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = '';
@@ -1054,7 +1087,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     const content = collection.name + '\n收藏于 ' + fullDate(collection.createdAt) + '\n\n' + contextText(collection.messages);
     rpc('export', { text: content, name: collection.name.replace(/[\/:*?"<>|]/g, '-') + '.txt' }).then(result => { if (!result.cancelled) notify('资料已导出'); }).catch(handleError);
   }
-  function revealInspector() { if (window.ReaderLayout) ReaderLayout.setCollapsed('inspector', false); scheduleLayout(); }
+  function revealInspector() { closeContentPreview(); if (window.ReaderLayout) ReaderLayout.setCollapsed('inspector', false); scheduleLayout(); }
   function abandonCurrentDiscussion(clearDraft = false) {
     const hadDiscussion = !!currentDiscussion();
     currentDiscussionId = null; contextCollectionId = null; show('ai-state', false);
@@ -1610,10 +1643,10 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     text('key-status', hasAPIKey ? '此账号与地址的 Key 已保存' : '此地址尚未设置 Key'); $('api-key').placeholder = hasAPIKey ? '留空保留此地址的 Key' : '输入此地址对应的 Key'; show('settings-error', false); show('settings-feedback', false); show('model-choice-row', false); updateModelHint(); openDialog('settings-dialog');
     $('settings-dialog').scrollTop = 0; $('settings-body').scrollTop = 0; $('close-settings').focus({ preventScroll: true });
     requestAnimationFrame(() => { if ($('settings-dialog').open) { $('settings-dialog').scrollTop = 0; $('settings-body').scrollTop = 0; } });
-    renderSettingsLocks(); renderAIControls(); loadStorageLocations();
+    renderSettingsLocks(); renderAIControls();
   }
   $('toolbar-center').addEventListener('click', () => { if (saveError) persist().then(() => notify('资料已重新保存')).catch(handleError); });
-  ['chats', 'bookmarks', 'collections'].forEach(view => $('nav-' + view).addEventListener('click', () => { if (view === 'bookmarks') bookmarkGroupFilter = ''; setView(view); }));
+  ['chats', 'followed', 'bookmarks', 'collections'].forEach(view => $('nav-' + view).addEventListener('click', () => { if (view === 'bookmarks') bookmarkGroupFilter = ''; setView(view); }));
   $('bookmark-group-filter').addEventListener('change', () => { bookmarkGroupFilter = $('bookmark-group-filter').value; renderBookmarks(); });
   $('mode-official').addEventListener('click', () => setMode('official')); $('mode-reader').addEventListener('click', () => setMode('reader'));
   $('group-search').addEventListener('input', renderSidebar);
@@ -1630,7 +1663,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   });
   $('sync-groups-dialog').addEventListener('cancel', event => { if (syncGroupsSaving) event.preventDefault(); });
   $('sync-groups-form').addEventListener('submit', async event => {
-    event.preventDefault(); if (syncGroupsSaving) return;
+    event.preventDefault(); if (syncGroupsSaving || cleanupBusy) return;
     const epoch = accountEpoch, previous = new Map(state.groups.map(group => [group.id, group.selected]));
     syncGroupsSaving = true; $('sync-groups-form').querySelectorAll('button, input').forEach(control => { control.disabled = true; }); show('sync-groups-error', false);
     try {
@@ -1662,6 +1695,9 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (latest) scrollToMessage(latest.id, 0, false);
     renderProgressButtons();
   });
+  document.querySelectorAll('[data-message-type]').forEach(control=>control.addEventListener('click',()=>{messageType=control.dataset.messageType;filterChanged();}));
+  $('followed-scope').addEventListener('change',()=>{followedGroupId=$('followed-scope').value;filterChanged();});
+  $('manage-followed-feed').addEventListener('click',()=>{if(!localSettingsLocked())followedUI.open();});
   $('message-search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(filterChanged, 120); });
   $('member-filter-button').addEventListener('click', () => { show('member-popover', $('member-popover').hidden); if (!$('member-popover').hidden) { renderMembers(); $('member-search').focus(); } });
   $('member-search').addEventListener('input', renderMembers);
@@ -1695,7 +1731,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (![14, 16, 18].includes(size) || size === fontSize) { $('font-button').value = String(fontSize); return; }
     const anchor = visibleMessage(); settleReading(); fontSize = size;
     document.documentElement.style.setProperty('--reader-size', fontSize + 'px');
-    if (anchor) scrollToMessage(anchor.messageId, anchor.offset, false); notify('阅读字号 ' + fontSize);
+    if (anchor) scrollToMessage(anchor.messageId, anchor.offset, false, anchor.groupId); notify('阅读字号 ' + fontSize);
   });
   $('clear-selection').addEventListener('click', () => { selected.clear(); renderReader(); });
   $('use-selection').addEventListener('click', () => { try { addContext(M.buildContext(state, Array.from(selected)).messages); } catch (error) { handleError(error); } });
@@ -1730,7 +1766,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   $('bookmarks-deleted').addEventListener('click', () => { deletedBookmarks = true; renderBookmarks(); });
   $('bookmark-dialog').addEventListener('cancel', event => { if (bookmarkNoteSaving) event.preventDefault(); });
   $('bookmark-form').addEventListener('submit', async event => {
-    event.preventDefault(); if (!bookmarkTarget || bookmarkNoteSaving) return;
+    event.preventDefault(); if (!bookmarkTarget || bookmarkNoteSaving || cleanupBusy) return;
     const bookmark = state.bookmarks.find(item => item.id === bookmarkTarget && !item.deletedAt && item.accountId === state.accountId);
     if (!bookmark) return;
     const epoch = accountEpoch, oldNote = bookmark.note;
@@ -1746,7 +1782,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     } finally { if (epoch === accountEpoch) { bookmarkNoteSaving = false; $('bookmark-form').querySelectorAll('button, textarea').forEach(control => { control.disabled = false; }); } }
   });
   $('collection-form').addEventListener('submit', async event => {
-    event.preventDefault(); const submit = $('confirm-collection'); submit.disabled = true; const epoch = accountEpoch;
+    event.preventDefault(); if(cleanupBusy)return; const submit = $('confirm-collection'); submit.disabled = true; const epoch = accountEpoch;
     try {
       const name = $('collection-name').value.trim(); if (!name) throw new Error('请填写资料名称');
       if (!pendingCollection) pendingCollection = M.createCollection(state, { name, messageIds: pendingCollectionKeys });
@@ -1760,6 +1796,85 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     finally { submit.disabled = false; }
   });
   $('settings-button').addEventListener('click', openSettings); $('ai-model-button').addEventListener('click', openSettings);
+  function updateContentPreview(value) {
+    text('content-preview-title',value.title||'资料预览');
+    text('content-preview-address',value.kind==='document'?'本地文档预览':value.url||'');
+    $('content-preview-address').title=value.url||'';
+    $('content-preview-back').disabled=!value.canGoBack; $('content-preview-forward').disabled=!value.canGoForward;
+    $('content-preview-external').textContent=value.kind==='document'?'用默认应用打开 ↗':'用默认浏览器打开 ↗';
+    $('content-preview-external').title=value.kind==='document'?'用 Mac 默认应用打开文档':'用 Mac 默认浏览器打开当前网页';
+    text('content-preview-status',value.error||(value.loading?'正在加载…':''));show('content-preview-status',!!value.error||!!value.loading);scheduleLayout();
+  }
+  function closeContentPreview(tellNative=true) {
+    previewOpen=false;previewMessage=null;previewSequence++;
+    show('content-preview-panel',false);$('inspector').classList.remove('previewing');
+    if(tellNative&&native&&ready)rpc('closeContentPreview').catch(()=>{});scheduleLayout();
+  }
+  async function openContentPreview(message,index,name) {
+    if(cleanupBusy||quitting)return;
+    const sequence=++previewSequence,epoch=accountEpoch;
+    previewOpen=true;previewMessage=message;show('content-preview-panel',true);$('inspector').classList.add('previewing');
+    if(window.ReaderLayout)ReaderLayout.setCollapsed('inspector',false);
+    updateContentPreview({title:name,kind:message.attachments[index].type,loading:true});scheduleLayout();
+    try {
+      if(!native||demo) {updateContentPreview({title:name,kind:message.attachments[index].type,error:'请在微阅 Mac 应用中浏览网页和文档。'});return;}
+      await flushSavedState();
+      if(sequence!==previewSequence||epoch!==accountEpoch)return;
+      const result=await rpc('previewContent',{...ReaderViewPolicy.attachmentReference(message,index),accountId:state.accountId});
+      if(sequence===previewSequence&&epoch===accountEpoch)updateContentPreview(result);
+    } catch(error) {if(sequence===previewSequence&&epoch===accountEpoch){rpc('closeContentPreview').catch(()=>{});updateContentPreview({title:name,kind:message.attachments[index].type,error:errorText(error)});}}
+  }
+  $('content-preview-close').addEventListener('click',()=>closeContentPreview());
+  ['back','forward','reload','external'].forEach(operation=>$('content-preview-'+operation).addEventListener('click',async()=>{
+    if(!native||!previewOpen)return;try{updateContentPreview(await rpc('contentPreviewAction',{operation}));}catch(error){text('content-preview-status',errorText(error));show('content-preview-status',true);scheduleLayout();}
+  }));
+  function renderAutoCleanupSettings() {
+    let pref;try{pref=ReaderStorage.preference(state.settings);}catch(_){pref={enabled:false,retentionDays:3};}
+    $('auto-cleanup-enabled').checked=pref.enabled;$('auto-cleanup-days').value=String(pref.retentionDays);
+    const saved=state.settings.autoCleanup||{};
+    text('storage-message-count','当前账号已保存 '+state.messages.length.toLocaleString()+' 条消息');
+    text('auto-cleanup-status',saved.lastRunAt?'最近检查 '+fullDate(saved.lastRunAt)+' · 清理 '+(saved.lastRemovedCount||0)+' 条 · 释放缓存 '+ReaderStorage.bytes(saved.lastFreedBytes)+(saved.lastError?' · '+saved.lastError:''):pref.enabled?'等待首次检查':'自动清理已关闭');
+  }
+  async function refreshStorageManagement() {
+    loadStorageLocations();const epoch=accountEpoch;
+    if(!native||demo){text('storage-total','演示预览');text('storage-measured','实际占用请在 Mac 应用中查看');return;}
+    text('storage-total','正在统计…');
+    try{
+      const usage=await rpc('storageUsage');if(epoch!==accountEpoch)return;
+      text('storage-total',ReaderStorage.bytes(usage.totalBytes));text('storage-measured','磁盘分配大小 · '+usage.fileCount.toLocaleString()+' 个文件 · 所有账号');
+      $('storage-categories').replaceChildren(...usage.categories.map(item=>{const row=node('div','storage-category');row.append(node('span','',item.name),node('strong','',ReaderStorage.bytes(item.bytes)));return row;}));
+    }catch(error){if(epoch===accountEpoch){text('storage-total','暂未取得');text('storage-error',errorText(error));show('storage-error',true);}}
+  }
+  function openStorageManagement() {
+    $('settings-dialog').close();renderAutoCleanupSettings();openDialog('storage-dialog');refreshStorageManagement();
+  }
+  $('open-storage-management').addEventListener('click',openStorageManagement);
+  $('storage-back').addEventListener('click',()=>{if(cleanupBusy)return;$('storage-dialog').close();openSettings();});
+  $('save-auto-cleanup').addEventListener('click',async()=>{
+    if(cleanupBusy||settingsBusy||busyAI||inlineBusy()||preparingContext||quitting)return;
+    const epoch=accountEpoch,previous=state.settings.autoCleanup;
+    try{
+      lockCleanup(true);show('storage-error',false);
+      const pref=ReaderStorage.preference({autoCleanup:{enabled:$('auto-cleanup-enabled').checked,retentionDays:Number($('auto-cleanup-days').value)}});
+      mutate(()=>{state.settings.autoCleanup={...previous,...pref,lastRunAt:'',lastError:''};});await persist();
+      if(epoch!==accountEpoch)return;autoCleanupAttempt=0;autoCleanupRetry=false;renderAutoCleanupSettings();notify('自动清理设置已保存');
+    }catch(error){if(epoch===accountEpoch){mutate(()=>{if(previous)state.settings.autoCleanup=previous;else delete state.settings.autoCleanup;});persistQuietly();text('storage-error',errorText(error));show('storage-error',true);}}
+    finally{lockCleanup(false);drainCleanupEvents();if(epoch===accountEpoch)runAutomaticCleanup();}
+  });
+  async function runAutomaticCleanup() {
+    if(!native||demo||!ready||loadFailed||!state.accountId||state.settings.autoCleanup?.enabled!==true||cleanupBusy||quitting||settingsBusy||busyAI||inlineBusy()||preparingContext||cancellingAI||preferencesSaving||discussionHistoryBusy||collectionsBusy||bookmarkNoteSaving||syncGroupsSaving||rangeOperation||messageToggles.hasPending()||document.querySelector('dialog[open]:not(#storage-dialog)')||!(autoCleanupRetry?Date.now()-autoCleanupAttempt>=300000:ReaderStorage.due(state.settings,Date.now(),autoCleanupAttempt)))return;
+    const epoch=accountEpoch,readingAnchor=visibleMessage();autoCleanupAttempt=Date.now();
+    try{
+      lockCleanup(true);settleReading();await flushSavedState();
+      const readingAndSelection=state.messages.filter(message=>selected.has(M.messageKey(message))||(readingAnchor&&message.groupId===readingAnchor.groupId&&message.id===readingAnchor.messageId));
+      const result=await rpc('autoCleanup',{accountId:state.accountId,revision:state.revision,protectedMessages:context.concat(previewMessage?[previewMessage]:[],readingAndSelection)});
+      if(epoch!==accountEpoch)return;
+      state=M.normalizeState(result.state);savedRevision=state.revision;saveError='';archiveDirty=true;readerList.clear();previewCache.clear();renderAll({restore:true,anchor:readingAnchor});renderAutoCleanupSettings();
+      autoCleanupRetry=!!result.warning;if(result.warning){text('auto-cleanup-status',result.warning);}
+      if($('storage-dialog').open)refreshStorageManagement();setSaveStatus('','已保存至本机');
+    }catch(error){if(epoch===accountEpoch){autoCleanupRetry=true;text('auto-cleanup-status','本次自动清理未完成，稍后重试：'+errorText(error));}}
+    finally{lockCleanup(false);drainCleanupEvents();}
+  }
   async function loadStorageLocations() {
     const epoch = accountEpoch;
     ['copy-data-path', 'copy-attachments-path', 'reveal-data-folder', 'reveal-attachments-folder'].forEach(id => { $(id).disabled = true; });
@@ -1786,7 +1901,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     if (!path.startsWith('/')) return;
     try { await rpc('copy', { text: path }); notify('完整路径已复制'); } catch (error) { text('storage-error', errorText(error)); show('storage-error', true); }
   }
-  $('refresh-storage').addEventListener('click', loadStorageLocations);
+  $('refresh-storage').addEventListener('click', refreshStorageManagement);
   ['data', 'attachments'].forEach(kind => {
     $('reveal-' + kind + '-folder').addEventListener('click', () => openStorageLocation(kind));
     $('copy-' + kind + '-path').addEventListener('click', () => copyStoragePath(kind));
@@ -1794,14 +1909,15 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   function cleanupOptions() { return {scope:$('cleanup-scope').value,groupId:activeGroupId,categories:['text','image','document'].filter(kind=>$('cleanup-'+kind).checked)}; }
   function cleanupSourceState() {
     // The unsent AI tray is a user-selected reference too. Protect its sources without persisting a fake discussion.
-    return {...state,discussions:state.discussions.concat(context.length ? [{id:'cleanup-draft-protection',contextSnapshots:context}] : [])};
+    return {...state,discussions:state.discussions.concat(context.length || previewMessage ? [{id:'cleanup-draft-protection',contextSnapshots:context.concat(previewMessage?[previewMessage]:[])}] : [])};
   }
   function invalidateCleanup() { cleanupPlan=null; $('cleanup-apply').disabled=true; text('cleanup-summary','请选择类别，然后预览将清理的内容。'); }
   function updateCleanupUndo() { $('cleanup-undo').disabled=cleanupBusy || !cleanupHasUndoReceipt; }
   function lockCleanup(value) {
     cleanupBusy=value;
-    ['cleanup-scope','cleanup-text','cleanup-image','cleanup-document','cleanup-preview','close-cleanup'].forEach(id=>$(id).disabled=value);
-    $('cleanup-apply').disabled=value || !cleanupPlan;updateCleanupUndo();
+    document.querySelector('.app-shell').inert=value;
+    ['cleanup-scope','cleanup-text','cleanup-image','cleanup-document','cleanup-preview','close-cleanup','save-auto-cleanup','auto-cleanup-enabled','auto-cleanup-days','storage-back','open-cleanup'].forEach(id=>$(id).disabled=value);
+    $('cleanup-apply').disabled=value || !cleanupPlan;updateCleanupUndo();refreshMountedCards();renderAIControls();
   }
   function drainCleanupEvents() { const pending=cleanupEvents;cleanupEvents=[];pending.forEach(event=>window.onNativeEvent(event)); }
   async function cleanupStatus() {
@@ -1815,7 +1931,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   $('open-cleanup').addEventListener('click',()=>{
     if(busyAI||inlineBusy()||preparingContext||cancellingAI){notify('请先完成或取消当前 AI 任务，再清理缓存。');return;}
     $('cleanup-scope').value=activeGroupId?'group':'all';['text','image','document'].forEach(kind=>$('cleanup-'+kind).checked=false);
-    invalidateCleanup();show('cleanup-error',false);$('settings-dialog').close();requestAnimationFrame(()=>{openDialog('cleanup-dialog');$('cleanup-scope').focus();});cleanupStatus();
+    invalidateCleanup();show('cleanup-error',false);$('settings-dialog').close();$('storage-dialog').close();requestAnimationFrame(()=>{openDialog('cleanup-dialog');$('cleanup-scope').focus();});cleanupStatus();
   });
   ['cleanup-scope','cleanup-text','cleanup-image','cleanup-document'].forEach(id=>$(id).addEventListener('change',invalidateCleanup));
   $('cleanup-dialog').addEventListener('cancel',event=>{if(cleanupBusy)event.preventDefault();});
@@ -1934,7 +2050,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     finally { setSettingsBusy(false); }
   });
   $('settings-form').addEventListener('submit', async event => {
-    event.preventDefault(); if (settingsBusy || inlineBusy()) return; const epoch = accountEpoch; setSettingsBusy(true, 'save'); show('settings-error', false);
+    event.preventDefault(); if (settingsBusy || inlineBusy() || cleanupBusy) return; const epoch = accountEpoch; setSettingsBusy(true, 'save'); show('settings-error', false);
     try {
       const configuration = readSettingsInputs();
       const keyAvailable = await prepareSettingsKey(configuration, epoch); if (epoch !== accountEpoch) return;
@@ -2001,13 +2117,13 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   followedUI = window.ReaderPersonalization.mount({
     getState: () => state, getGroupId: () => activeGroupId,
     save: members => savePersonalization(state.settings, 'followedMembers', window.ReaderPersonalization.validate(members)),
-    onChange: refreshMountedCards, onDialogChange: scheduleLayout
+    onChange:()=>{refreshMountedCards();renderSidebar();if(activeView==='followed')renderReader({reset:true});}, onDialogChange: scheduleLayout
   });
   $('open-followed-members').addEventListener('click', () => { if (localSettingsLocked()) return; $('settings-dialog').close(); followedUI.open(); });
   readingAppearance = window.ReaderReadingAppearance.mount({rpc,canUse:()=>native&&ready&&!demo&&!quitting,
     beforeApply:()=>{const anchor=visibleMessage();settleReading();return anchor?{...anchor,navigationEpoch:readingNavigationEpoch}:null;},
     afterApply:anchor=>{
-      const restore=()=>{if(anchor&&anchor.accountId===state.accountId&&anchor.groupId===activeGroupId&&anchor.navigationEpoch===readingNavigationEpoch)scrollToMessage(anchor.messageId,anchor.offset,false);};
+      const restore=()=>{if(anchor&&anchor.accountId===state.accountId&&(anchor.groupId===activeGroupId||activeView==='followed')&&anchor.navigationEpoch===readingNavigationEpoch)scrollToMessage(anchor.messageId,anchor.offset,false,anchor.groupId);};
       restore();requestAnimationFrame(restore);scheduleLayout();
     },
     onDialogChange:scheduleLayout
@@ -2047,12 +2163,12 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   window.addEventListener('weiyue:show-bookmarks', event => { bookmarkGroupFilter = event.detail && event.detail.groupId || ''; setView('bookmarks'); });
   window.addEventListener('weiyue:open-storage', () => { if (native && !demo) rpc('revealStorage', {kind:'data'}).catch(handleError); else notify('请在微阅 Mac 应用中打开保存文件夹。'); });
   window.addEventListener('weiyue:layout-start', () => { resizingAnchor = visibleMessage(); userScrollUntil = 0; suppressScrollUntil = Date.now() + 1000; });
-  function keepLayoutAnchor() { suppressScrollUntil = Date.now() + 500; userScrollUntil = 0; if (resizingAnchor && resizingAnchor.accountId === state.accountId && resizingAnchor.groupId === activeGroupId) scrollToMessage(resizingAnchor.messageId, resizingAnchor.offset, false); scheduleLayout(); }
+  function keepLayoutAnchor() { suppressScrollUntil = Date.now() + 500; userScrollUntil = 0; if (resizingAnchor && resizingAnchor.accountId === state.accountId && (resizingAnchor.groupId === activeGroupId || activeView==='followed')) scrollToMessage(resizingAnchor.messageId, resizingAnchor.offset, false, resizingAnchor.groupId); scheduleLayout(); }
   window.addEventListener('weiyue:layout-change', keepLayoutAnchor);
   window.addEventListener('weiyue:layout-end', () => { keepLayoutAnchor(); requestAnimationFrame(() => { keepLayoutAnchor(); resizingAnchor = null; }); });
   window.addEventListener('weiyue:appearance-save',event=>{if(native && ready && !demo)rpc('saveAppearance',event.detail).catch(handleError);});
   window.addEventListener('weiyue:layout-save', event => { if (native && ready && !demo) rpc('saveLayout', { preferences: event.detail }).catch(handleError); });
-  window.addEventListener('resize', scheduleLayout); new ResizeObserver(scheduleLayout).observe($('official-host'));
+  window.addEventListener('resize', scheduleLayout); const layoutObserver=new ResizeObserver(scheduleLayout); layoutObserver.observe($('official-host')); layoutObserver.observe($('content-preview-host'));
 
   function loadDemo() {
     if (native) return;
@@ -2098,6 +2214,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
       if (U.initialize(state)) persistQuietly();
       recoverRangeSummaries();
       const events = queuedEvents; queuedEvents = []; events.forEach(receiveEvent); renderAll({ restore: true });
+      setTimeout(runAutomaticCleanup,2500);
     } catch (error) { ready = true; loadFailed = true; setSaveStatus('failed', '载入失败'); banner('本地资料载入失败：' + errorText(error) + '。为保护原有资料，请关闭并重新打开应用。'); }
     scheduleLayout();
   }

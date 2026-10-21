@@ -26,7 +26,7 @@ if [ ! -f build/AppIcon.icns ] || [ scripts/make-icon.swift -nt build/AppIcon.ic
   build/make-icon build/AppIcon.iconset
   node scripts/package-icon.cjs
 fi
-SOURCES=(Sources/Store.swift Sources/AIClient.swift Sources/DiscussionTitles.swift Sources/WebSearchClient.swift Sources/MediaPolicy.swift Sources/MediaStore.swift Sources/WorkspacePolicy.swift Sources/ReadingAppearance.swift Sources/ContentExtractor.swift Sources/DirectInput.swift Sources/CacheCleaner.swift Sources/AttachmentPreview.swift Sources/App.swift)
+SOURCES=(Sources/Store.swift Sources/AIClient.swift Sources/DiscussionTitles.swift Sources/WebSearchClient.swift Sources/MediaPolicy.swift Sources/MediaStore.swift Sources/WorkspacePolicy.swift Sources/ReadingAppearance.swift Sources/ContentExtractor.swift Sources/DirectInput.swift Sources/CacheCleaner.swift Sources/StorageUsage.swift Sources/RetentionPolicy.swift Sources/AutomaticCleanup.swift Sources/ContentPreview.swift Sources/AttachmentPreview.swift Sources/App.swift)
 BINARIES=()
 for arch in "${ARCHS[@]}"; do
   printf '正在构建 %s（macOS 14+）…\n' "$arch" >&2
@@ -54,8 +54,8 @@ cat > "$STAGED_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>WeiboReader</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0.9</string>
-<key>CFBundleVersion</key><string>15</string>
+<key>CFBundleShortVersionString</key><string>1.0.10</string>
+<key>CFBundleVersion</key><string>16</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
