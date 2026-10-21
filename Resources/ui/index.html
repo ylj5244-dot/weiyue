@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="storage-preview.css">
   <link rel="stylesheet" href="reader-discovery.css">
   <link rel="stylesheet" href="settings-navigation.css">
+  <link rel="stylesheet" href="compact-reader.css">
   <script src="appearance.js"></script>
   <script src="preferences.js" defer></script>
   <script src="web-search.js" defer></script>
@@ -27,6 +28,7 @@
   <script src="range-summary-runner.js" defer></script>
   <script src="layout.js" defer></script>
   <script src="reader-discovery.js" defer></script>
+  <script src="compact-reader.js" defer></script>
   <script src="reader-performance.js" defer></script>
   <script src="cleanup.js" defer></script>
   <script src="storage-management.js" defer></script>
@@ -70,7 +72,25 @@
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.7 13.1A8.9 8.9 0 0 1 10.9 3.3 9 9 0 1 0 20.7 13.1Z"/></symbol>
     <symbol id="i-return" viewBox="0 0 24 24"><path d="m9 5-5 5 5 5M4 10h10a6 6 0 0 1 0 12"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 4h18l-7 8v8l-4-2v-6Z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h0"/></symbol>
   </svg>
+
+  <div id="sync-popover" class="compact-reader-popover" role="dialog" aria-label="当前群同步详情" tabindex="-1" hidden>
+    <div class="compact-popover-heading"><strong>同步与本地记录</strong><button type="button" class="icon-button small" data-close-reader-popover aria-label="关闭同步详情"><svg><use href="#i-close"/></svg></button></div>
+    <p id="group-description">连接账号，留住值得细读的讨论</p>
+    <div id="coverage-bar" class="coverage-bar"><span class="coverage-dot"></span><span id="coverage-text">本地尚未保存消息 · 勾选群聊后自动同步</span></div>
+    <p id="result-count">0 条本地消息</p>
+    <div id="sync-bar" class="sync-bar"><span class="sync-dot"></span><span id="sync-status">等待同步当前群聊</span><span id="sync-time"></span><div class="sync-actions"><button id="sync-now" class="text-button">立即同步</button><button id="load-history" class="text-button">加载更早 500 条</button></div></div>
+  </div>
+  <div id="reader-filter-popover" class="compact-reader-popover" role="dialog" aria-label="筛选当前群消息" tabindex="-1" hidden>
+    <div class="compact-popover-heading"><strong>筛选消息</strong><button type="button" class="icon-button small" data-close-reader-popover aria-label="关闭筛选"><svg><use href="#i-close"/></svg></button></div>
+    <div class="compact-filter-heading"><span>成员</span><button id="member-filter-button" class="filter-button" aria-controls="member-popover" aria-expanded="true">全部成员 <span class="down-chevron">⌄</span></button></div>
+    <div id="member-popover" class="member-popover"><label class="search-field"><svg><use href="#i-search"/></svg><input id="member-search" type="search" placeholder="搜索成员姓名或 ID" autocomplete="off" aria-label="搜索成员姓名或 ID"></label><div id="member-list"></div></div>
+    <div class="compact-filter-heading"><span>日期</span><button id="date-filter-button" class="filter-button" title="按时间筛选" aria-controls="date-filter" aria-expanded="true"><svg><use href="#i-clock"/></svg><span>时间</span></button></div>
+    <div id="date-filter" class="date-filter"><label>从 <input id="date-from" type="date" aria-label="起始日期"></label><label>至 <input id="date-to" type="date" aria-label="结束日期"></label><button id="clear-dates" class="text-button">清除日期</button></div>
+    <button id="manage-followed-feed" class="reader-manage-followed" title="管理重点关注人员" aria-label="管理重点关注人员">★ 管理重点关注人员 <svg><use href="#i-chevron"/></svg></button>
+  </div>
 
   <div id="app" class="app-shell">
     <header class="toolbar">
@@ -118,11 +138,11 @@
 
       <main id="main" class="main-panel">
         <section id="chat-view" class="chat-view">
-          <header class="content-header">
-            <div class="heading-group"><span id="group-icon" class="group-emblem"><svg><use href="#i-chat"/></svg></span><div><h1 id="group-name">微博群聊</h1><p id="group-description">连接账号，留住值得细读的讨论</p></div></div>
-            <div class="reader-mode-actions"><button id="enter-standby" class="standby-button" type="button" title="取消当前阅读群，所有已开启同步的群继续累计未读"><span class="standby-cap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0"/></svg></span><span id="standby-label">进入待机</span></button><div class="view-switch" role="group" aria-label="阅读方式"><button id="mode-official" class="selected">官方聊天</button><button id="mode-reader">专注阅读</button></div></div>
+          <header class="content-header compact-reader-header">
+            <div class="heading-group"><span id="group-icon" class="group-emblem"><svg><use href="#i-chat"/></svg></span><h1 id="group-name">微博群聊</h1></div>
+            <div class="compact-header-status"><button id="sync-status-button" class="compact-sync-button" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="sync-popover"><span class="compact-sync-dot" aria-hidden="true"></span><span id="sync-status-short">等待同步</span><span class="compact-chevron" aria-hidden="true"></span></button><span id="history-incomplete" class="history-incomplete" title="仅包含本地已保存的消息，不能据此认定历史记录完整" hidden><svg aria-hidden="true"><use href="#i-info"/></svg><span>历史未完整</span></span></div>
+            <div class="reader-mode-actions"><button id="enter-standby" class="standby-button" type="button" title="取消当前阅读群，所有已开启同步的群继续累计未读"><span class="standby-cap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0"/></svg></span><span id="standby-label">待机</span></button><div class="view-switch" role="group" aria-label="阅读方式"><button id="mode-official" class="selected">官方聊天</button><button id="mode-reader">专注阅读</button></div></div>
           </header>
-          <div id="coverage-bar" class="coverage-bar"><span class="coverage-dot"></span><span id="coverage-text">本地尚未保存消息 · 勾选群聊后自动同步</span><button id="coverage-action" class="text-button">查看最新</button></div>
           <div id="official-area" class="official-area">
             <div id="official-host" class="official-host">
               <div id="official-placeholder" class="official-placeholder"><span class="empty-icon"><svg><use href="#i-chat"/></svg></span><h2>从一场讨论开始</h2><p id="official-placeholder-text">在此登录微博，使用完整的官方聊天。<br>选择要保留的群，再到「专注阅读」整理内容。</p><button id="open-official" class="primary-button">打开官方聊天</button><span class="small-note">官方页面独立运行，消息由你手动发送</span></div>
@@ -131,20 +151,14 @@
           </div>
           <div id="reader-area" class="reader-area" hidden>
             <div class="reader-tools">
-              <div class="reader-search-row">
+              <div class="reader-audience" role="group" aria-label="当前群阅读范围"><button type="button" data-reader-audience="all" aria-pressed="true">全部发言</button><button type="button" data-reader-audience="followed" aria-pressed="false">★ 只看关注</button></div>
                 <label class="search-field message-search"><svg><use href="#i-search"/></svg><input id="message-search" type="search" placeholder="搜索消息" autocomplete="off" aria-label="搜索消息、链接或文件名"></label>
                 <div id="message-type-filters" class="message-type-filters" role="group" aria-label="按消息类型筛选"><button type="button" data-message-type="all" aria-pressed="true">全部</button><button type="button" data-message-type="link" aria-pressed="false">链接</button><button type="button" data-message-type="image" aria-pressed="false">图片</button><button type="button" data-message-type="document" aria-pressed="false">文件</button><button type="button" data-message-type="video" aria-pressed="false">视频</button></div>
-              </div>
-              <div class="reader-filter-row">
-                <div class="reader-audience" role="group" aria-label="当前群阅读范围"><button type="button" data-reader-audience="all" aria-pressed="true">全部发言</button><button type="button" data-reader-audience="followed" aria-pressed="false">★ 只看关注</button></div>
-                <button id="manage-followed-feed" class="reader-manage-followed" title="管理重点关注人员" aria-label="管理重点关注人员">管理</button>
-                <div class="reader-filter-options"><button id="member-filter-button" class="filter-button">全部成员 <span class="down-chevron">⌄</span></button><button id="date-filter-button" class="filter-button" title="按时间筛选"><svg><use href="#i-clock"/></svg><span>时间</span></button><button id="open-range-summary" class="filter-button range-summary-button" title="指定日期和时间，加载并总结这段时间的全部群聊消息"><svg><use href="#i-spark"/></svg><span>时段总结</span></button><label class="font-size-control" title="调整阅读字号"><span aria-hidden="true">Aa</span><select id="font-button" aria-label="阅读字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option></select></label></div>
-              </div>
+                <button id="reader-filter-button" class="filter-button" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="reader-filter-popover"><svg><use href="#i-filter"/></svg><span>筛选</span><span class="compact-chevron" aria-hidden="true"></span></button>
+                <button id="open-range-summary" class="filter-button range-summary-button" title="指定日期和时间，加载并总结这段时间的全部群聊消息"><svg><use href="#i-spark"/></svg><span>时段总结</span></button><label class="font-size-control" title="调整阅读字号"><span aria-hidden="true">Aa</span><select id="font-button" aria-label="阅读字号"><option value="14">14</option><option value="16">16</option><option value="18">18</option></select></label>
             </div>
-            <div id="member-popover" class="member-popover" hidden><label class="search-field"><svg><use href="#i-search"/></svg><input id="member-search" type="search" placeholder="搜索成员姓名或 ID" autocomplete="off" aria-label="搜索成员姓名或 ID"></label><div id="member-list"></div></div>
-            <div id="date-filter" class="date-filter" hidden><label>从 <input id="date-from" type="date" aria-label="起始日期"></label><label>至 <input id="date-to" type="date" aria-label="结束日期"></label><button id="clear-dates" class="text-button">清除</button></div>
-            <div id="reader-summary" class="reader-summary"><div class="reader-result-line"><span id="result-count">0 条本地消息</span><button id="clear-filters" class="text-button" hidden>清除筛选</button></div><div class="reader-status-row"><div class="reading-position-controls" aria-label="阅读位置"><button id="manual-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">回到手动续读点</span><span class="reading-position-time">尚未设置</span></button><button id="return-position" class="reading-position-button" type="button" disabled><span class="reading-position-label">返回跳转前</span><span class="reading-position-time">尚未跳转</span></button></div><div id="sync-bar" class="sync-bar"><span class="sync-dot"></span><span id="sync-status">等待同步当前群聊</span><span id="sync-time"></span><div class="sync-actions"><button id="sync-now" class="text-button">立即同步</button><button id="load-history" class="text-button">加载更早 500 条</button></div></div></div></div>
-            <div id="reader-scroll" class="reader-scroll" tabindex="0" aria-label="群聊消息"><div id="messages" class="messages"></div></div>
+            <div id="reader-summary" class="reader-summary" hidden><div id="active-filter-summary" class="active-filter-summary"></div><div class="reader-result-line"><span id="filter-result-count"></span><button id="clear-filters" class="text-button" hidden>清除筛选</button></div></div>
+            <div class="reader-message-stage"><div id="reader-scroll" class="reader-scroll" tabindex="0" aria-label="群聊消息"><div id="messages" class="messages"></div></div><nav id="reader-navigation" class="reading-position-controls" aria-label="阅读位置" hidden><button id="manual-position" class="reading-position-button" type="button" disabled hidden><span class="reading-position-label">回到手动续读点</span><span class="reading-position-time">尚未设置</span></button><button id="return-position" class="reading-position-button" type="button" disabled hidden><span class="reading-position-label">返回跳转前</span><span class="reading-position-time">尚未跳转</span></button><button id="coverage-action" class="reading-position-button" type="button" title="查看最新消息，并保留返回跳转前的位置"><svg class="latest-arrow" aria-hidden="true"><use href="#i-arrow"/></svg><span>最新</span></button></nav></div>
             <div id="selection-bar" class="selection-bar" hidden><div><span id="selected-count">已选 0 条</span><button id="clear-selection" class="text-button">清除</button></div><div><button id="translate-selection" class="secondary-button" title="批量翻译所选聊天，在右侧查看"><svg><use href="#i-book"/></svg>批量翻译</button><button id="save-collection" class="secondary-button"><svg><use href="#i-folder"/></svg>加入收藏</button><button id="use-selection" class="primary-button"><svg><use href="#i-spark"/></svg>加入讨论</button></div></div>
             <div id="reader-footer" class="reader-footer"><span>仅搜索本地已加载记录</span><span>选择消息 · 收藏、翻译或加入讨论</span></div>
           </div>

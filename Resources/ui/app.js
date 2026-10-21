@@ -95,6 +95,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   let quitting = false, quitPreparation = null, cancellingAI = false;
   let preferencesSaving = false, preferencesUI = null, settingsNavigation = null, followedUI = null, inlineTranslation = null, readingAppearance = null;
   let discussionTitles = null;
+  let compactReader = null;
   let bookmarkGroupFilter = '', syncGroupsSaving = false;
   function inlineBusy() { return !!(inlineTranslation && inlineTranslation.isBusy()); }
   let discussionHistoryBusy = false, deletedDiscussions = false, pendingDiscussionDeleteIds = [];
@@ -396,6 +397,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   };
   function mutate(callback) { callback(); state.revision++; }
   function replaceAccount(raw, keyStatus, name) {
+    if (compactReader) compactReader.close();
     closeContentPreview(false); autoCleanupAttempt=0;autoCleanupRetry=false;messageType='all';readerFollowedOnly=false;
     if (discussionTitles) discussionTitles.reset();
     cancelRangeSummary('账号切换已停止时段总结。').catch(() => {});
@@ -469,7 +471,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     layoutFrame = requestAnimationFrame(() => {
       if (!native || !ready) return;
       const r = $('official-host').getBoundingClientRect();
-      const visible = activeView === 'chats' && mode === 'official' && !document.querySelector('dialog[open]') && !demo;
+      const visible = activeView === 'chats' && mode === 'official' && !document.querySelector('dialog[open]') && !(compactReader && compactReader.isOpen()) && !demo;
       rpc('layout', { x: r.x, y: r.y, width: r.width, height: r.height, visible }).catch(() => {});
       const p=$('content-preview-host').getBoundingClientRect();
       rpc('previewLayout',{x:p.x,y:p.y,width:p.width,height:p.height,visible:previewOpen&&!document.querySelector('dialog[open]')&&p.width>40&&p.height>40&&$('inspector').getBoundingClientRect().width>40}).catch(()=>{});
@@ -510,13 +512,15 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   function renderHeader() {
     const group = currentGroup(), standby = state.settings.readerStandby === true && !activeGroupId;
     text('group-name', standby ? '待机中' : group ? group.name : '微博群聊');
+    $('group-name').title = $('group-name').textContent;
     text('group-description', standby ? '所有已开启同步的群继续收取消息、累计未读提醒' : group ? (group.selected ? '已开启本地保存 · 自动同步' : '在「管理」中开启群聊同步与本地保存') : '连接账号，留住值得细读的讨论');
     $('enter-standby').disabled = !state.accountId || standby;
-    text('standby-label', standby ? '已待机' : '进入待机');
+    text('standby-label', standby ? '已待机' : '待机');
     $('mode-official').disabled = standby;
     $('reader-area').classList.toggle('is-standby', standby);
     $('coverage-bar').hidden = standby;
     const messages = archive().forGroup(activeGroupId);
+    show('history-incomplete', !standby && !!group && messages.length > 0);
     let coverage = '本地尚未保存消息 · 在「管理」中开启同步';
     if (messages.length) coverage = '本地 ' + messages.length + ' 条 · ' + fullDate(messages[0].sentAt) + ' 至 ' + fullDate(messages[messages.length - 1].sentAt) + ' · 非完整历史';
     text('coverage-text', coverage); $('coverage-text').title = coverage;
@@ -526,18 +530,18 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   }
   function renderSyncStatus() {
     const group = currentGroup(), info = syncStates.get(activeGroupId);
-    let label = !group ? '选择一个群聊开始同步' : !group.selected ? '在「管理」中开启此群同步' : demo ? '演示内容 · 不连接微博' : '等待同步当前群聊';
-    if (info) {
-      label = info.text || ({ loading: info.phase === 'history' ? '正在补充历史消息' : info.phase === 'refresh' ? '正在补全已有消息附件' : '正在同步新消息', idle: '实时同步已开启', paused: '同步已暂停', backoff: '稍后自动重试', error: '同步遇到问题' })[info.state] || '等待同步';
-    }
-    text('sync-status', label); $('sync-status').title = label;
+    const status = window.ReaderCompact.syncPresentation({ group, info, native, demo, standby:state.settings.readerStandby === true && !activeGroupId, locked:!ready || loadFailed || quitting });
+    text('sync-status', status.detail); $('sync-status').title = status.detail;
+    text('sync-status-short', status.short);
+    $('sync-status-button').dataset.tone = status.tone;
+    $('sync-status-button').title = status.detail + ' · 查看同步详情';
+    $('sync-status-button').setAttribute('aria-label', status.short + '，' + status.detail + '，查看同步详情');
     text('sync-time', info && info.updatedAt ? '更新于 ' + clockDate(info.updatedAt) : '');
     $('sync-bar').className = 'sync-bar' + (info && ['error', 'backoff'].includes(info.state) ? ' sync-error' : '') + (info && info.state === 'loading' ? ' sync-loading' : '');
-    const permitted = !!(native && group && group.selected && !demo);
-    $('sync-now').disabled = !permitted || !!(info && info.state === 'loading');
-    text('sync-now', info && ['error', 'backoff', 'paused'].includes(info.state) ? '重试同步' : '立即同步');
-    $('load-history').disabled = !permitted || !!(info && info.state === 'loading' && info.phase === 'history') || !!(info && info.hasMore === false);
-    text('load-history', info && info.hasMore === false ? '没有更早消息' : '加载更早 500 条');
+    $('sync-now').disabled = status.syncDisabled;
+    text('sync-now', status.syncAction);
+    $('load-history').disabled = status.historyDisabled;
+    text('load-history', status.historyAction);
   }
   async function requestSync(history) {
     const group = currentGroup(); if (!native || !group || !group.selected || demo) return;
@@ -554,6 +558,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     scheduleLayout();
   }
   function setView(view) {
+    if (compactReader) compactReader.close();
     ++readingNavigationEpoch;settleReading();activeView=view;
     show('member-popover',false);renderSidebar();renderHeader();renderViews();
     if(view==='chats'&&mode==='reader')renderReader({restore:true});
@@ -561,6 +566,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   }
   function setGroup(id) {
     if (!state.groups.some(group => group.id === id)) return false;
+    if (compactReader) compactReader.close();
     ++readingNavigationEpoch; focusedSource = null;
     settleReading(); activeGroupId = id;
     if (state.settings.readerStandby === true) mutate(() => state.settings.readerStandby = false);
@@ -576,6 +582,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   }
   function enterStandby() {
     if (!ready || !state.accountId || quitting || loadFailed) return;
+    if (compactReader) compactReader.close();
     ++readingNavigationEpoch; settleReading(); saveViewPreferences();
     const parked = visibleMessage() || viewportAnchors.get(activeGroupId) || (state.progress[activeGroupId] || {}).auto;
     if (parked && parked.accountId === state.accountId && parked.groupId === activeGroupId && archive().find(activeGroupId, parked.messageId)) {
@@ -590,11 +597,12 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   }
   function setMode(value, options = {}) {
     if (value === 'official' && state.settings.readerStandby === true && !activeGroupId) { notify('点击左侧群聊后即可打开官方聊天。'); return; }
+    if (compactReader) compactReader.close();
     ++readingNavigationEpoch; settleReading(); mode = value; activeView = 'chats'; renderSidebar(); renderHeader(); renderViews();
     saveViewPreferences(); if (value === 'reader') { renderReader({ restore: true }); captureSessionStart(); }
     if (value === 'official' && native && options.navigate !== false) rpc('openOfficial', activeGroupId ? { groupId: activeGroupId } : {}).catch(handleError);
   }
-  function resetFilters() { ++readingNavigationEpoch;settleReading(); messageType='all'; readerFollowedOnly=false; memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; renderReader({ restore: true }); }
+  function resetFilters() { const returnToSearch = $('reader-summary').contains(document.activeElement); ++readingNavigationEpoch;settleReading(); messageType='all'; readerFollowedOnly=false; memberId = ''; $('message-search').value = ''; $('date-from').value = ''; $('date-to').value = ''; renderReader({ restore: true }); if (returnToSearch) $('message-search').focus(); }
   function filterChanged() { ++readingNavigationEpoch;settleReading(); renderReader(isFiltered() ? { reset: true } : { restore: true }); }
   function searchOptions() {
     const options = { groupId:activeGroupId,type:messageType,accountId:state.accountId };
@@ -621,7 +629,12 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     $('member-filter-button').classList.toggle('active', !!memberId);
     $('date-filter-button').classList.toggle('active', !!($('date-from').value || $('date-to').value));
     text('result-count', messages.length + (filter ? ' 条匹配消息' : focusedSource ? ' 条消息 · 含总结来源快照' : ' 条本地消息'));
-    show('clear-filters', filter); renderProgressButtons();
+    const conditions = window.ReaderCompact.activeFilters({ query:$('message-search').value, type:messageType, memberId, memberName:member && member.name || '', from:$('date-from').value, to:$('date-to').value, followed:readerFollowedOnly });
+    $('active-filter-summary').replaceChildren(...conditions.map(label => { const chip=node('span', '', label);chip.title=label;return chip; }));
+    text('filter-result-count', messages.length + ' 条匹配');
+    $('reader-filter-button').classList.toggle('active', filter);
+    $('reader-filter-button').setAttribute('aria-label', filter ? '筛选消息，当前条件：' + conditions.join('；') : '筛选消息');
+    show('reader-summary', filter); show('clear-filters', filter); renderProgressButtons();
     if (imageObserver) imageObserver.disconnect();
     const children = [];
     if (!messages.length) {
@@ -869,12 +882,12 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
   function renderMembers() {
     const query=$('member-search').value.trim().toLocaleLowerCase();
     const members = activeGroupId ? M.findMembers(state, activeGroupId, query).filter(member => !window.ReaderPersonalization.isSystemNotice({senderId:member.id,senderName:member.name}) && (!readerFollowedOnly || ReaderDiscovery.followedIds(state).includes(member.id))) : [];
-    const all = button('全部成员', 'member-option' + (!memberId ? ' active' : ''), () => { memberId = ''; show('member-popover', false); filterChanged(); });
+    const all = button('全部成员', 'member-option' + (!memberId ? ' active' : ''), () => { memberId = ''; if (compactReader) compactReader.close(); filterChanged(); });
     const children = [all];
     members.forEach(member => {
       const option = node('button', 'member-option' + (memberId === member.id ? ' active' : '')); option.type = 'button';
       const label = node('span'); label.append(node('strong', '', member.name || '未命名成员'), node('small', '', 'ID ' + member.id));
-      option.append(label, node('span', '', member.count + ' 条')); option.addEventListener('click', () => { memberId = member.id; show('member-popover', false); filterChanged(); }); children.push(option);
+      option.append(label, node('span', '', member.count + ' 条')); option.addEventListener('click', () => { memberId = member.id; if (compactReader) compactReader.close(); filterChanged(); }); children.push(option);
     });
     if (!members.length) children.push(node('p', 'sidebar-empty', '没有匹配成员。仅包含本地消息中出现过的成员。'));
     replace('member-list', children);
@@ -899,15 +912,19 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     buttons.forEach(([id, kind, label, empty, explanation]) => {
       const control = $(id), anchor = progress[kind];
       const message = anchor && archive().find(activeGroupId, anchor.messageId);
+      const available = !!(anchor && anchor.accountId === state.accountId && anchor.groupId === activeGroupId && message && !window.ReaderPersonalization.isSystemNotice(message));
       const timestamp = anchor && (anchor.messageSentAt || (message && message.sentAt));
       const full = timestamp ? fullDate(timestamp) : '';
       const compact = full.replace('年', '-').replace('月', '-').replace('日', '');
-      control.disabled = !anchor; control.hidden = !anchor;
-      control.replaceChildren(node('span', 'reading-position-label', label), node('time', 'reading-position-time', anchor ? compact || '消息时间未知' : empty));
+      control.disabled = !available; control.hidden = !available;
+      control.replaceChildren(...(kind === 'returnPoint' ? [icon('return')] : []), node('span', 'reading-position-label', label), node('time', 'reading-position-time', anchor ? compact || '消息时间未知' : empty));
       if (timestamp) control.querySelector('time').dateTime = timestamp;
       control.title = explanation + (anchor ? '\n消息时间：' + (full || '未知') : '\n' + empty);
       control.setAttribute('aria-label', label + '，' + (anchor ? '消息时间 ' + (full || '未知') : empty));
     });
+    const hasMessages = archive().forGroup(activeGroupId).some(message => !window.ReaderPersonalization.isSystemNotice(message));
+    $('coverage-action').disabled = !hasMessages;
+    show('reader-navigation', !!activeGroupId && hasMessages && state.settings.readerStandby !== true);
   }
   function scrollToMessage(id, offset = 0, highlight = true, groupId = activeGroupId) {
     const key = state.accountId + ':' + groupId + ':' + id;
@@ -935,6 +952,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     renderProgressButtons();
   }
   function jumpTo(groupId, messageId, snapshot) {
+    if (compactReader) compactReader.close();
     settleReading();
     const original = archive().find(groupId, messageId) || (snapshot && snapshot.accountId === state.accountId && snapshot.groupId === groupId && snapshot.id === messageId ? snapshot : null);
     if (original && window.ReaderPersonalization.isSystemNotice(original)) { notify('这条来自「粉丝群」的系统通知已在专注阅读中隐藏，保存的书签或收藏仍可查看。'); return; }
@@ -948,7 +966,7 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     renderSidebar(); renderHeader(); renderViews(); renderReader({ restore: true }); saveViewPreferences();
     if (!scrollToMessage(messageId)) banner('原消息不在当前本地视图，已保留快照。');
   }
-  function openDialog(id) { $(id).showModal(); scheduleLayout(); }
+  function openDialog(id) { if (compactReader) compactReader.close(); $(id).showModal(); scheduleLayout(); }
   async function toggleMessageAction(kind, message) {
     if (!ready || loadFailed || !state.accountId || quitting || cleanupBusy || (kind === 'collection' && collectionsBusy) || messageToggles.status(kind, message).saving) return;
     try {
@@ -1700,11 +1718,11 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     const next=control.dataset.readerAudience==='followed';if(next===readerFollowedOnly)return;
     ++readingNavigationEpoch;settleReading();readerFollowedOnly=next;memberId='';selected.clear();show('member-popover',false);renderReader(next?{reset:true}:{restore:true});
   }));
-  $('manage-followed-feed').addEventListener('click',()=>{if(!localSettingsLocked())openSettings('followed');});
+  $('manage-followed-feed').addEventListener('click',()=>{if(!localSettingsLocked()){if(compactReader)compactReader.close();openSettings('followed');}});
   $('message-search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(filterChanged, 120); });
-  $('member-filter-button').addEventListener('click', () => { show('member-popover', $('member-popover').hidden); if (!$('member-popover').hidden) { renderMembers(); $('member-search').focus(); } });
+  $('member-filter-button').addEventListener('click', () => { show('member-popover', $('member-popover').hidden); $('member-filter-button').setAttribute('aria-expanded', String(!$('member-popover').hidden)); if (!$('member-popover').hidden) { renderMembers(); $('member-search').focus(); } if (compactReader) compactReader.reposition(); });
   $('member-search').addEventListener('input', renderMembers);
-  $('date-filter-button').addEventListener('click', () => { show('date-filter', $('date-filter').hidden); });
+  $('date-filter-button').addEventListener('click', () => { show('date-filter', $('date-filter').hidden); $('date-filter-button').setAttribute('aria-expanded', String(!$('date-filter').hidden)); if (!$('date-filter').hidden) $('date-from').focus(); if (compactReader) compactReader.reposition(); });
   ['date-from', 'date-to'].forEach(id => $(id).addEventListener('change', filterChanged));
   $('clear-dates').addEventListener('click', () => { $('date-from').value = ''; $('date-to').value = ''; filterChanged(); });
   $('clear-filters').addEventListener('click', resetFilters);
@@ -2172,9 +2190,20 @@ if (typeof module === 'object' && module.exports) module.exports = ReaderViewPol
     isLocked:groupId=>preferencesLocked() || !state.groups.find(item=>item.id===groupId)?.selected
   });
   window.addEventListener('weiyue:range-summary-dialog-change',scheduleLayout);
+  compactReader = window.ReaderCompact.createPopoverController({
+    document, window, bounds:()=>{const r=$('main').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};},
+    entries:[
+      {key:'sync',trigger:$('sync-status-button'),panel:$('sync-popover'),width:350},
+      {key:'filter',trigger:$('reader-filter-button'),panel:$('reader-filter-popover'),width:350,initialFocus:()=>$('member-search'),beforeOpen:()=>{
+        show('member-popover',true);show('date-filter',true);$('member-filter-button').setAttribute('aria-expanded','true');$('date-filter-button').setAttribute('aria-expanded','true');renderMembers();
+      }}
+    ],onChange:scheduleLayout
+  });
+  document.querySelectorAll('[data-close-reader-popover]').forEach(control=>control.addEventListener('click',()=>compactReader.close()));
+  window.addEventListener('weiyue:layout-change',()=>compactReader.reposition());
   $('dismiss-status').addEventListener('click', () => show('status-banner', false));
-  document.addEventListener('click', event => { document.querySelectorAll('.compact-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); if (!$('member-popover').hidden && !$('member-popover').contains(event.target) && !$('member-filter-button').contains(event.target)) show('member-popover', false); const path=event.composedPath();if(!$('discussion-list').hidden&&!path.includes($('discussion-list'))&&!path.includes($('discussion-history'))&&!path.includes($('discussion-delete-dialog')))show('discussion-list',false); });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') { document.querySelectorAll('.compact-menu[open]').forEach(menu => menu.open = false); show('member-popover', false); show('discussion-list', false); } });
+  document.addEventListener('click', event => { document.querySelectorAll('.compact-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); const path=event.composedPath();if(!$('discussion-list').hidden&&!path.includes($('discussion-list'))&&!path.includes($('discussion-history'))&&!path.includes($('discussion-delete-dialog')))show('discussion-list',false); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { document.querySelectorAll('.compact-menu[open]').forEach(menu => menu.open = false); show('discussion-list', false); } });
   window.addEventListener('weiyue:bookmark-note', event => { const value = event.detail || {}; openBookmarkNote(state.bookmarks.find(item => item.id === value.bookmarkId)); });
   window.addEventListener('weiyue:bookmark-jump', event => { const value = event.detail || {}; if (value.groupId && value.messageId) jumpTo(value.groupId, value.messageId); });
   window.addEventListener('weiyue:show-bookmarks', event => { bookmarkGroupFilter = event.detail && event.detail.groupId || ''; setView('bookmarks'); });
